@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Res } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Param, Query, Res, HttpCode, HttpException, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
 import { DatabaseService } from './database.service';
 
@@ -6,14 +6,36 @@ import { DatabaseService } from './database.service';
 export class DatabaseController {
     constructor(private readonly databaseService: DatabaseService) { }
 
+    /** POST /database/backup — create manual backup (returns metadata only) */
     @Post('backup')
+    @HttpCode(201)
     async createBackup() {
-        return this.databaseService.createBackup(true);
+        const result = await this.databaseService.createBackup(true);
+        return { success: true, ...result };
     }
 
+    /** GET /database/backups — list all backup files */
+    @Get('backups')
+    listBackups() {
+        return this.databaseService.listBackups();
+    }
+
+    /** GET /database/backup/download?filename=xxx — download a backup file */
     @Get('backup/download')
-    async downloadBackup(@Res() res: Response) {
-        const result = await this.databaseService.createBackup(true);
-        res.download(result.path, result.filename);
+    async downloadBackup(@Query('filename') filename: string, @Res() res: Response) {
+        if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+            throw new HttpException('Invalid filename', HttpStatus.BAD_REQUEST);
+        }
+        const backups = this.databaseService.listBackups();
+        const backup = backups.find(b => b.filename === filename);
+        if (!backup) throw new HttpException('Backup not found', HttpStatus.NOT_FOUND);
+        res.download(backup.path, backup.filename);
+    }
+
+    /** DELETE /database/backup/:filename — delete a backup file */
+    @Delete('backup/:filename')
+    deleteBackup(@Param('filename') filename: string) {
+        this.databaseService.deleteBackup(filename);
+        return { success: true };
     }
 }
