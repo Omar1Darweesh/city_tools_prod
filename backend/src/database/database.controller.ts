@@ -1,4 +1,5 @@
-import { Controller, Post } from '@nestjs/common';
+import { Controller, Post, Get, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { DatabaseService } from './database.service';
 
 @Controller('database')
@@ -7,7 +8,12 @@ export class DatabaseController {
 
     @Post('backup')
     async createBackup() {
-        // Pass true for manual backup
         return this.databaseService.createBackup(true);
+    }
+
+    @Get('backup/download')
+    async downloadBackup(@Res() res: Response) {
+        const result = await this.databaseService.createBackup(true);
+        res.download(result.path, result.filename);
     }
 }

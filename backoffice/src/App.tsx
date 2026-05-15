@@ -21,6 +21,7 @@ import CustomerPayments from './pages/CustomerPayments';
 import Roles from './pages/Roles';
 import CostVerification from './pages/CostVerification';
 import Expenses from './pages/Expenses';
+import Backup from './pages/Backup';
 
 
 export default function App() {
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/customer-payments" element={<CustomerPayments />} />
           <Route path="/roles" element={<Roles />} />
           <Route path="expenses" element={<Expenses />} />
+          <Route path="backup" element={<Backup />} />
 
         </Route>
       </Routes>

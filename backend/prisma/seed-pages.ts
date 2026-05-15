@@ -90,6 +90,15 @@ const pages = [
         sortOrder: 9,
     },
     {
+        key: 'backup',
+        nameEn: 'Backup',
+        nameAr: 'النسخ الاحتياطي',
+        category: 'admin',
+        icon: 'Database',
+        route: '/backup',
+        sortOrder: 13,
+    },
+    {
         key: 'expenses',
         nameEn: 'Expenses',
         nameAr: 'المصروفات',

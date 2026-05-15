@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, LogOut, Menu, X, Users, Settings, ShoppingCart, Plane, Building2, Tags, BarChart3, ClipboardList, RotateCcw, DollarSign, Shield, Box, Warehouse, Truck, UserCog, CheckCircle, Wallet } from 'lucide-react';
+import { LayoutDashboard, Package, LogOut, Menu, X, Users, Settings, ShoppingCart, Plane, Building2, Tags, BarChart3, ClipboardList, RotateCcw, DollarSign, Shield, Box, Warehouse, Truck, UserCog, CheckCircle, Wallet, Database } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import apiClient from './api/client';
 
@@ -24,6 +24,7 @@ const iconMap: Record<string, any> = {
     Settings,
     CheckCircle,
     Wallet,
+    Database,
 };
 
 export default function Layout() {
