@@ -5,9 +5,12 @@ import {
   IsArray,
   ValidateNested,
   IsNumber,
+  IsEnum,
+  IsString,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PaymentMethod, PaymentTerm } from '@prisma/client';
 
 export class GRNLineDto {
   @IsInt()
@@ -22,9 +25,6 @@ export class GRNLineDto {
   @Min(0)
   cost: number;
 }
-
-import { PaymentTerm } from '@prisma/client';
-import { IsEnum } from 'class-validator';
 
 export class CreateGRNDto {
   @IsInt()
@@ -78,4 +78,24 @@ export class CreateSupplierDto {
 
   @IsOptional()
   paymentTerms?: string;
+}
+
+export class CreateSupplierPaymentDto {
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @IsInt()
+  @IsOptional()
+  grnId?: number;
+
+  @IsEnum(PaymentMethod)
+  @IsOptional()
+  method?: PaymentMethod;
+
+  @IsOptional()
+  notes?: string;
+
+  @IsOptional()
+  paymentDate?: string;
 }

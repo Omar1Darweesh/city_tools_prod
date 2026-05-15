@@ -34,6 +34,18 @@ interface ProductFormProps {
     onSave: () => void;
 }
 
+function generateEAN13(): string {
+    const prefix = '200';
+    const randomPart = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10)).join('');
+    const withoutCheck = prefix + randomPart;
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+        sum += parseInt(withoutCheck[i]) * (i % 2 === 0 ? 1 : 3);
+    }
+    const checkDigit = (10 - (sum % 10)) % 10;
+    return withoutCheck + checkDigit;
+}
+
 export default function ProductForm({ product, onClose, onSave }: ProductFormProps) {
     // Hierarchy data
     const [categories, setCategories] = useState<Category[]>([]);
@@ -600,19 +612,41 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
                         {/* Barcode */}
                         <div>
                             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>الباركود *</label>
-                            <input
-                                type="text"
-                                value={formData.barcode}
-                                onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                                required
-                                style={{
-                                    width: '100%',
-                                    padding: '0.75rem',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '0.5rem',
-                                    fontSize: '1rem',
-                                }}
-                            />
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+                                <input
+                                    type="text"
+                                    value={formData.barcode}
+                                    onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                                    required
+                                    placeholder="أدخل الباركود أو اضغط توليد"
+                                    style={{
+                                        flex: 1,
+                                        padding: '0.75rem',
+                                        border: '1px solid #d1d5db',
+                                        borderRadius: '0.5rem',
+                                        fontSize: '1rem',
+                                        letterSpacing: '0.05em',
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, barcode: generateEAN13() })}
+                                    style={{
+                                        padding: '0.75rem 1.1rem',
+                                        background: '#6366f1',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '0.5rem',
+                                        cursor: 'pointer',
+                                        fontWeight: '600',
+                                        fontSize: '0.9rem',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                    title="توليد باركود EAN-13 تلقائياً"
+                                >
+                                    🔁 توليد باركود
+                                </button>
+                            </div>
                         </div>
 
                         {/* Code */}
@@ -719,7 +753,7 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
                                     }}
                                 />
                                 <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                                    آخر تكلفة شراء: {formData.cost.toFixed(2)} ر.س
+                                    آخر تكلفة شراء: {formData.cost.toFixed(2)} ج.م
                                 </div>
                             </div>
                         )}

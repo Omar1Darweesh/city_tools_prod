@@ -89,6 +89,15 @@ const pages = [
         route: '/suppliers',
         sortOrder: 9,
     },
+    {
+        key: 'expenses',
+        nameEn: 'Expenses',
+        nameAr: 'المصروفات',
+        category: 'transactions',
+        icon: 'Wallet',
+        route: '/expenses',
+        sortOrder: 5,
+    },
 
     // Admin Category (الإدارة)
     {

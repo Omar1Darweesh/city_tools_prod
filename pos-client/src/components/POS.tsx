@@ -3,6 +3,38 @@ import { Search, Trash2, ShoppingCart, User, Building, Users, Printer, LogOut } 
 import apiClient from '../api/client';
 import './POS.css';
 
+interface Category {
+    id: number;
+    nameAr?: string;
+    name?: string;
+}
+
+function getCategoryName(product: { category?: Category | null; itemType?: { subcategory?: { category?: Category | null } | null } | null }): string {
+    return (
+        product.category?.nameAr ||
+        product.category?.name ||
+        product.itemType?.subcategory?.category?.nameAr ||
+        product.itemType?.subcategory?.category?.name ||
+        ''
+    );
+}
+
+function CategoryBadge({ name }: { name: string }) {
+    if (!name) return null;
+    return (
+        <span style={{
+            display: 'inline-flex', alignItems: 'center',
+            padding: '2px 10px',
+            background: '#eff6ff', color: '#1d4ed8',
+            borderRadius: '9999px', fontSize: '11px',
+            fontWeight: 700, border: '1px solid #bfdbfe',
+            userSelect: 'none', flexShrink: 0,
+        }}>
+            {name}
+        </span>
+    );
+}
+
 interface Product {
     id: number;
     barcode: string;
@@ -14,6 +46,9 @@ interface Product {
     taxRate?: number;
     cost: number;
     stock?: number;
+    category?: Category | null;
+    itemType?: { subcategory?: { category?: Category | null } | null } | null;
+    supplier?: { id: number; name: string } | null;
 }
 
 interface Customer {
@@ -53,6 +88,13 @@ function POS() {
     const [loadingProducts, setLoadingProducts] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('');
     const [categories, setCategories] = useState<any[]>([]);
+    const [selectedSubcategory, setSelectedSubcategory] = useState<string>('');
+    const [subcategories, setSubcategories] = useState<any[]>([]);
+    const [selectedItemType, setSelectedItemType] = useState<string>('');
+    const [itemTypes, setItemTypes] = useState<any[]>([]);
+    const [suppliers, setSuppliers] = useState<{ id: number; name: string }[]>([]);
+    const [selectedSupplier, setSelectedSupplier] = useState<string>('');
+    const [browserSearchQuery, setBrowserSearchQuery] = useState('');
     const [editingPrice, setEditingPrice] = useState<{
         productId: number;
         currentPrice: number;
@@ -139,12 +181,6 @@ function POS() {
         const item = cart.find(i => i.id === productId);
         if (!item) return;
 
-        if (newPrice < Number(item.cost)) {
-            playBeep('error');
-            setMessage('⚠️ يجب أن يكون السعر أعلى من الحد الأدنى المسموح به');
-            return;
-        }
-
         setCart(cart.map(i => {
             if (i.id === productId) {
                 return {
@@ -171,14 +207,58 @@ function POS() {
         }
     };
 
-    const loadProductsForBrowser = async (categoryId?: string) => {
+    const loadSuppliers = async () => {
+        try {
+            const data = await apiClient.get('/purchasing/suppliers?active=true&take=200');
+            setSuppliers(data?.data || data || []);
+        } catch (e) {
+            console.error('Failed to load suppliers', e);
+        }
+    };
+
+    const loadSubcategories = async (categoryId: string) => {
+        try {
+            const data = await apiClient.get(`/products/subcategories?categoryId=${categoryId}`);
+            setSubcategories(Array.isArray(data) ? data : []);
+        } catch (e) {
+            console.error('Failed to load subcategories', e);
+            setSubcategories([]);
+        }
+    };
+
+    const loadItemTypes = async (subcategoryId: string) => {
+        try {
+            const data = await apiClient.get(`/products/item-types?subcategoryId=${subcategoryId}`);
+            setItemTypes(Array.isArray(data) ? data : []);
+        } catch (e) {
+            console.error('Failed to load item types', e);
+            setItemTypes([]);
+        }
+    };
+
+    const applyBrowserFilters = (prods: Product[], query: string): Product[] => {
+        if (!query) return prods;
+        const q = query.toLowerCase();
+        return prods.filter(p =>
+            p.nameAr?.toLowerCase().includes(q) ||
+            p.nameEn?.toLowerCase().includes(q) ||
+            p.code?.toLowerCase().includes(q) ||
+            p.barcode?.toLowerCase().includes(q) ||
+            (p.supplier?.name || '').toLowerCase().includes(q)
+        );
+    };
+
+    const loadProductsForBrowser = async (categoryId?: string, subcategoryId?: string, itemTypeId?: string, supplierId?: string) => {
         try {
             setLoadingProducts(true);
+            setBrowserSearchQuery('');
             const branchId = user.branchId || user.branch?.id || 1;
-            const url = categoryId
-                ? `/products?branchId=${branchId}&categoryId=${categoryId}&active=true&take=2000`
-                : `/products?branchId=${branchId}&active=true&take=2000`;
-            const response = await apiClient.get(url);
+            const params = new URLSearchParams({ branchId: String(branchId), active: 'true', take: '2000' });
+            if (categoryId) params.set('categoryId', categoryId);
+            if (subcategoryId) params.set('subcategoryId', subcategoryId);
+            if (itemTypeId) params.set('itemTypeId', itemTypeId);
+            if (supplierId) params.set('supplierId', supplierId);
+            const response = await apiClient.get(`/products?${params.toString()}`);
             const products = (response.data || response).map((p: any) => ({
                 ...p,
                 priceRetail: Number(p.priceRetail) || 0,
@@ -186,7 +266,7 @@ function POS() {
                 cost: Number(p.cost) || 0,
             }));
             setBrowserProducts(products);
-            setAllBrowserProducts(products); // Store for filtering
+            setAllBrowserProducts(products);
         } catch (e) {
             console.error('Failed to load products', e);
             setBrowserProducts([]);
@@ -199,6 +279,7 @@ function POS() {
     useEffect(() => {
         if (showProductBrowser) {
             loadCategories();
+            loadSuppliers();
             loadProductsForBrowser();
         }
     }, [showProductBrowser]);
@@ -1035,9 +1116,14 @@ function POS() {
                                             <strong style={{ display: 'block', marginBottom: '6px', fontSize: '15px', color: '#1e293b' }}>
                                                 {item.nameAr || item.nameEn}
                                             </strong>
-                                            <small style={{ color: '#64748b', display: 'block', marginBottom: '10px', fontSize: '13px' }}>
+                                            <small style={{ color: '#64748b', display: 'block', marginBottom: '4px', fontSize: '13px' }}>
                                                 {item.barcode} • {item.price.toFixed(2)} ر.س
                                             </small>
+                                            {getCategoryName(item) && (
+                                                <div style={{ marginBottom: '8px' }}>
+                                                    <CategoryBadge name={getCategoryName(item)} />
+                                                </div>
+                                            )}
 
                                             {item.stock !== undefined && (
                                                 <small style={{
@@ -1567,24 +1653,14 @@ function POS() {
                                 </p>
                             </div>
 
-                            <div style={{ marginBottom: '20px', padding: '14px', background: '#fef3c7', borderRadius: '10px', border: '1px solid #fbbf24' }}>
-                                <p style={{ margin: 0, fontSize: '13px', color: '#92400e', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '500' }}>
-                                    <span style={{ fontSize: '18px' }}>⚠️</span>
-                                    يجب أن يكون السعر أعلى من الحد الأدنى المسموح به
-                                </p>
-                            </div>
-
                             <form onSubmit={(e) => {
                                 e.preventDefault();
                                 const form = e.target as HTMLFormElement;
                                 const input = form.elements.namedItem('customPrice') as HTMLInputElement;
                                 const newPrice = parseFloat(input.value);
 
-                                if (newPrice && newPrice >= editingPrice.cost) {
+                                if (newPrice) {
                                     updateCustomPrice(editingPrice.productId, newPrice);
-                                } else if (newPrice < editingPrice.cost) {
-                                    playBeep('error');
-                                    setMessage('⚠️ يجب أن يكون السعر أعلى من الحد الأدنى المسموح به');
                                 }
                             }}>
                                 <div style={{ marginBottom: '20px' }}>
@@ -1719,10 +1795,15 @@ function POS() {
                                         }}
                                     >
                                         <div style={{ flex: 1, textAlign: 'right' }}>
-                                            <div style={{ fontWeight: 600, marginBottom: '4px' }}>{p.nameEn}</div>
-                                            <div style={{ fontSize: '14px', color: '#10b981' }}>
+                                            <div style={{ fontWeight: 600, marginBottom: '4px' }}>{p.nameAr || p.nameEn}</div>
+                                            <div style={{ fontSize: '14px', color: '#10b981', marginBottom: '4px' }}>
                                                 {selectedCustomer?.type === 'WHOLESALE' && p.priceWholesale ? p.priceWholesale : p.priceRetail} ر.س
                                             </div>
+                                            {getCategoryName(p) && (
+                                                <div style={{ marginBottom: '4px' }}>
+                                                    <CategoryBadge name={getCategoryName(p)} />
+                                                </div>
+                                            )}
                                             {p.stock !== undefined && (
                                                 <div style={{
                                                     fontSize: '12px',
@@ -1835,20 +1916,12 @@ function POS() {
                                 <div style={{ flex: 1, minWidth: '250px' }}>
                                     <input
                                         type="text"
-                                        placeholder="🔍 ابحث عن منتج..."
+                                        placeholder="🔍 ابحث عن منتج (اسم، باركود، مورد)..."
+                                        value={browserSearchQuery}
                                         onChange={(e) => {
-                                            const query = e.target.value.toLowerCase();
-                                            if (query) {
-                                                const filtered = allBrowserProducts.filter(p =>
-                                                    p.nameAr?.toLowerCase().includes(query) ||
-                                                    p.nameEn?.toLowerCase().includes(query) ||
-                                                    p.code?.toLowerCase().includes(query) ||
-                                                    p.barcode?.toLowerCase().includes(query)
-                                                );
-                                                setBrowserProducts(filtered);
-                                            } else {
-                                                setBrowserProducts(allBrowserProducts);
-                                            }
+                                            const query = e.target.value;
+                                            setBrowserSearchQuery(query);
+                                            setBrowserProducts(applyBrowserFilters(allBrowserProducts, query));
                                         }}
                                         style={{
                                             width: '100%',
@@ -1868,11 +1941,16 @@ function POS() {
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', overflowX: 'auto', paddingBottom: '5px' }}>
+                            {/* Category filter */}
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '5px', scrollbarWidth: 'thin' }}>
                                 <button
                                     onClick={() => {
                                         setSelectedCategory('');
-                                        loadProductsForBrowser();
+                                        setSelectedSubcategory('');
+                                        setSubcategories([]);
+                                        setSelectedItemType('');
+                                        setItemTypes([]);
+                                        loadProductsForBrowser(undefined, undefined, undefined, selectedSupplier || undefined);
                                     }}
                                     style={{
                                         padding: '10px 20px',
@@ -1895,7 +1973,11 @@ function POS() {
                                         key={cat.id}
                                         onClick={() => {
                                             setSelectedCategory(cat.id.toString());
-                                            loadProductsForBrowser(cat.id.toString());
+                                            setSelectedSubcategory('');
+                                            setSelectedItemType('');
+                                            setItemTypes([]);
+                                            loadSubcategories(cat.id.toString());
+                                            loadProductsForBrowser(cat.id.toString(), undefined, undefined, selectedSupplier || undefined);
                                         }}
                                         style={{
                                             padding: '10px 20px',
@@ -1915,6 +1997,132 @@ function POS() {
                                     </button>
                                 ))}
                             </div>
+
+                            {/* Subcategory filter - shows when a category is selected */}
+                            {selectedCategory && subcategories.length > 0 && (
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '5px', paddingTop: '6px', scrollbarWidth: 'thin' }}>
+                                    <button
+                                        onClick={() => {
+                                            setSelectedSubcategory('');
+                                            setSelectedItemType('');
+                                            setItemTypes([]);
+                                            loadProductsForBrowser(selectedCategory, undefined, undefined, selectedSupplier || undefined);
+                                        }}
+                                        style={{
+                                            padding: '7px 16px',
+                                            background: !selectedSubcategory ? '#667eea' : 'white',
+                                            color: !selectedSubcategory ? 'white' : '#4b5563',
+                                            border: '2px solid',
+                                            borderColor: !selectedSubcategory ? 'transparent' : '#e5e7eb',
+                                            borderRadius: '20px',
+                                            cursor: 'pointer',
+                                            fontSize: '13px',
+                                            fontWeight: '600',
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        كل الأقسام
+                                    </button>
+                                    {subcategories.map(sub => (
+                                        <button
+                                            key={sub.id}
+                                            onClick={() => {
+                                                setSelectedSubcategory(sub.id.toString());
+                                                setSelectedItemType('');
+                                                loadItemTypes(sub.id.toString());
+                                                loadProductsForBrowser(selectedCategory, sub.id.toString(), undefined, selectedSupplier || undefined);
+                                            }}
+                                            style={{
+                                                padding: '7px 16px',
+                                                background: selectedSubcategory === sub.id.toString() ? '#667eea' : 'white',
+                                                color: selectedSubcategory === sub.id.toString() ? 'white' : '#4b5563',
+                                                border: '2px solid',
+                                                borderColor: selectedSubcategory === sub.id.toString() ? 'transparent' : '#e5e7eb',
+                                                borderRadius: '20px',
+                                                cursor: 'pointer',
+                                                fontSize: '13px',
+                                                fontWeight: '600',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            {sub.nameAr || sub.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Item type filter - shows when a subcategory is selected */}
+                            {selectedSubcategory && itemTypes.length > 0 && (
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '5px', paddingTop: '6px', scrollbarWidth: 'thin' }}>
+                                    <button
+                                        onClick={() => {
+                                            setSelectedItemType('');
+                                            loadProductsForBrowser(selectedCategory, selectedSubcategory, undefined, selectedSupplier || undefined);
+                                        }}
+                                        style={{
+                                            padding: '6px 14px',
+                                            background: !selectedItemType ? '#764ba2' : 'white',
+                                            color: !selectedItemType ? 'white' : '#4b5563',
+                                            border: '2px solid',
+                                            borderColor: !selectedItemType ? 'transparent' : '#e5e7eb',
+                                            borderRadius: '16px',
+                                            cursor: 'pointer',
+                                            fontSize: '12px',
+                                            fontWeight: '600',
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        كل الأنواع
+                                    </button>
+                                    {itemTypes.map(it => (
+                                        <button
+                                            key={it.id}
+                                            onClick={() => {
+                                                setSelectedItemType(it.id.toString());
+                                                loadProductsForBrowser(selectedCategory, selectedSubcategory, it.id.toString(), selectedSupplier || undefined);
+                                            }}
+                                            style={{
+                                                padding: '6px 14px',
+                                                background: selectedItemType === it.id.toString() ? '#764ba2' : 'white',
+                                                color: selectedItemType === it.id.toString() ? 'white' : '#4b5563',
+                                                border: '2px solid',
+                                                borderColor: selectedItemType === it.id.toString() ? 'transparent' : '#e5e7eb',
+                                                borderRadius: '16px',
+                                                cursor: 'pointer',
+                                                fontSize: '12px',
+                                                fontWeight: '600',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            {it.nameAr || it.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {false && suppliers.length > 0 && (
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', paddingTop: '10px' }}>
+                                    <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>المورد:</span>
+                                    <select
+                                        value={selectedSupplier}
+                                        onChange={(e) => {
+                                            setSelectedSupplier(e.target.value);
+                                            loadProductsForBrowser(selectedCategory || undefined, e.target.value || undefined);
+                                        }}
+                                        style={{
+                                            padding: '6px 12px', borderRadius: '20px', border: '2px solid #e5e7eb',
+                                            cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+                                            background: selectedSupplier ? '#ede9fe' : 'white',
+                                            color: '#4b5563', outline: 'none', maxWidth: '220px', direction: 'rtl'
+                                        }}
+                                    >
+                                        <option value=''>الكل</option>
+                                        {suppliers.map(s => (
+                                            <option key={s.id} value={s.id.toString()}>{s.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                         </div>
 
                         {loadingProducts ? (
@@ -1935,10 +2143,10 @@ function POS() {
                         ) : (
                             <div style={{
                                 flex: 1,
-                                padding: '30px',
+                                padding: '16px',
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                                gap: '20px',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                                gap: '12px',
                                 alignContent: 'start',
                                 overflowY: 'auto'
                             }}>
@@ -1953,8 +2161,8 @@ function POS() {
                                             key={product.id}
                                             style={{
                                                 background: 'white',
-                                                padding: '20px',
-                                                borderRadius: '16px',
+                                                padding: '12px',
+                                                borderRadius: '12px',
                                                 border: '2px solid #e5e7eb',
                                                 cursor: product.stock === 0 ? 'not-allowed' : 'pointer',
                                                 transition: 'all 0.2s',
@@ -1962,13 +2170,12 @@ function POS() {
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 position: 'relative',
-                                                height: '420px',
                                                 opacity: product.stock === 0 ? 0.6 : 1
                                             }}
                                             onMouseEnter={(e) => {
                                                 if (product.stock !== 0) {
-                                                    e.currentTarget.style.transform = 'translateY(-8px)';
-                                                    e.currentTarget.style.boxShadow = '0 12px 24px rgba(102, 126, 234, 0.25)';
+                                                    e.currentTarget.style.transform = 'translateY(-4px)';
+                                                    e.currentTarget.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.25)';
                                                 }
                                             }}
                                             onMouseLeave={(e) => {
@@ -1976,74 +2183,71 @@ function POS() {
                                                 e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
                                             }}
                                         >
+                                            {/* Stock badge */}
                                             {product.stock !== undefined && (
                                                 <div style={{
-                                                    position: 'absolute',
-                                                    top: '12px',
-                                                    left: '12px',
-                                                    padding: '6px 12px',
+                                                    position: 'absolute', top: '8px', left: '8px',
+                                                    padding: '3px 8px',
                                                     background: product.stock <= 10
                                                         ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
                                                         : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                    color: 'white',
-                                                    borderRadius: '20px',
-                                                    fontSize: '11px',
-                                                    fontWeight: '700',
-                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                                                    zIndex: 1,
-                                                    minWidth: '50px',
-                                                    textAlign: 'center'
+                                                    color: 'white', borderRadius: '20px', fontSize: '10px',
+                                                    fontWeight: '700', zIndex: 1, minWidth: '40px', textAlign: 'center'
                                                 }}>
                                                     {product.stock === 0 ? '❌ نفذ' : `📦 ${product.stock}`}
                                                 </div>
                                             )}
 
+                                            {/* Name */}
                                             <div style={{
-                                                fontSize: '16px',
-                                                fontWeight: '700',
-                                                color: '#1e293b',
-                                                marginBottom: '12px',
-                                                height: '48px',
-                                                overflow: 'hidden',
-                                                textAlign: 'center',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                lineHeight: '1.4',
-                                                direction: 'rtl'
+                                                fontSize: '13px', fontWeight: '700', color: '#1e293b',
+                                                marginBottom: '6px', marginTop: '20px',
+                                                overflow: 'hidden', textAlign: 'center',
+                                                display: '-webkit-box', WebkitLineClamp: 2,
+                                                WebkitBoxOrient: 'vertical', lineHeight: '1.3', direction: 'rtl'
                                             }}>
                                                 {product.nameAr || product.nameEn}
                                             </div>
 
+                                            {/* Barcode / code */}
                                             <div style={{
-                                                fontSize: '12px',
-                                                color: '#64748b',
-                                                marginBottom: '16px',
-                                                textAlign: 'center',
-                                                height: '36px',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                gap: '4px'
+                                                fontSize: '11px', color: '#64748b', marginBottom: '6px',
+                                                textAlign: 'center', display: 'flex', flexDirection: 'column',
+                                                alignItems: 'center', gap: '2px'
                                             }}>
                                                 <div style={{ fontWeight: '600' }}>{product.barcode}</div>
-                                                {product.code && <div style={{ fontSize: '11px', color: '#94a3b8' }}>#{product.code}</div>}
+                                                {product.code && <div style={{ fontSize: '10px', color: '#94a3b8' }}>#{product.code}</div>}
                                             </div>
 
+                                            {/* Category */}
+                                            {getCategoryName(product) && (
+                                                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
+                                                    <CategoryBadge name={getCategoryName(product)} />
+                                                </div>
+                                            )}
+
+                                            {/* Supplier */}
+                                            {product.supplier && (
+                                                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
+                                                    <span style={{
+                                                        display: 'inline-block', padding: '1px 8px',
+                                                        background: '#f0fdf4', color: '#166534',
+                                                        borderRadius: '9999px', fontSize: '10px', fontWeight: 600,
+                                                        border: '1px solid #bbf7d0', maxWidth: '100%',
+                                                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                                                    }}>
+                                                        {product.supplier.name}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* Price */}
                                             <div style={{
-                                                fontSize: '22px',
-                                                fontWeight: '800',
+                                                fontSize: '17px', fontWeight: '800',
                                                 background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                WebkitBackgroundClip: 'text',
-                                                WebkitTextFillColor: 'transparent',
-                                                textAlign: 'center',
-                                                marginBottom: '12px',
-                                                height: '28px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                direction: 'rtl'
+                                                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                                                textAlign: 'center', marginBottom: '8px',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', direction: 'rtl'
                                             }}>
                                                 {(() => {
                                                     const price = selectedCustomer?.type === 'WHOLESALE' && product.priceWholesale
@@ -2055,19 +2259,14 @@ function POS() {
 
                                             {selectedCustomer?.type === 'WHOLESALE' && product.priceWholesale && (
                                                 <div style={{
-                                                    fontSize: '12px',
-                                                    color: '#64748b',
-                                                    textAlign: 'center',
-                                                    marginBottom: '16px',
-                                                    textDecoration: 'line-through',
-                                                    opacity: 0.7
+                                                    fontSize: '11px', color: '#64748b', textAlign: 'center',
+                                                    marginBottom: '8px', textDecoration: 'line-through', opacity: 0.7
                                                 }}>
                                                     قطاعي: {Number(product.priceRetail).toFixed(2)} ر.س
                                                 </div>
                                             )}
 
-                                            <div style={{ flex: 1 }}></div>
-
+                                            {/* Add button */}
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -2080,47 +2279,17 @@ function POS() {
                                                 }}
                                                 disabled={product.stock === 0}
                                                 style={{
-                                                    width: '100%',
-                                                    padding: '12px',
+                                                    width: '100%', marginTop: 'auto', padding: '8px',
                                                     background: product.stock === 0 ? '#9ca3af' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: '10px',
+                                                    color: 'white', border: 'none', borderRadius: '8px',
                                                     cursor: product.stock === 0 ? 'not-allowed' : 'pointer',
-                                                    fontSize: '14px',
-                                                    fontWeight: '700',
-                                                    transition: 'all 0.2s',
+                                                    fontSize: '12px', fontWeight: '700', transition: 'all 0.2s',
                                                     boxShadow: product.stock === 0 ? 'none' : '0 4px 12px rgba(102, 126, 234, 0.3)',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    gap: '6px',
-                                                    opacity: product.stock === 0 ? 0.6 : 1
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    if (product.stock !== 0) {
-                                                        e.currentTarget.style.transform = 'scale(1.02)';
-                                                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.4)';
-                                                    }
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    if (product.stock !== 0) {
-                                                        e.currentTarget.style.transform = 'scale(1)';
-                                                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
-                                                    }
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    gap: '4px', opacity: product.stock === 0 ? 0.6 : 1
                                                 }}
                                             >
-                                                {product.stock === 0 ? (
-                                                    <>
-                                                        <span style={{ fontSize: '18px' }}>❌</span>
-                                                        غير متوفر
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <span style={{ fontSize: '18px' }}>+</span>
-                                                        إضافة للسلة
-                                                    </>
-                                                )}
+                                                {product.stock === 0 ? '❌ غير متوفر' : '+ إضافة للسلة'}
                                             </button>
                                         </div>
                                     ))

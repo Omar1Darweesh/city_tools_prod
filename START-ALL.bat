@@ -1,4 +1,16 @@
 @echo off
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ================================================
+    echo ERROR: Administrator rights required!
+    echo ================================================
+    echo.
+    echo Please right-click START-ALL.bat and select
+    echo "Run as administrator"
+    echo.
+    pause
+    exit /b 1
+)
 
 REM ============================================
 REM ENCRYPTION/DECRYPTION FUNCTIONS
@@ -309,7 +321,21 @@ taskkill /F /FI "WINDOWTITLE eq CityTools POS" >nul 2>&1
 taskkill /F /FI "WINDOWTITLE eq CityTools Backoffice" >nul 2>&1
 
 echo Cleanup complete
+REM ============================================
+REM FIREWALL RULES
+REM ============================================
+echo Configuring firewall rules...
+netsh advfirewall firewall delete rule name="CityTools POS" >nul 2>&1
+netsh advfirewall firewall delete rule name="CityTools Backoffice" >nul 2>&1
+netsh advfirewall firewall delete rule name="CityTools Backend" >nul 2>&1
+netsh advfirewall firewall delete rule name="CityTools PostgreSQL" >nul 2>&1
+netsh advfirewall firewall add rule name="CityTools POS" dir=in action=allow protocol=TCP localport=5173 profile=any >nul
+netsh advfirewall firewall add rule name="CityTools Backoffice" dir=in action=allow protocol=TCP localport=5174 profile=any >nul
+netsh advfirewall firewall add rule name="CityTools Backend" dir=in action=allow protocol=TCP localport=5000 profile=any >nul
+netsh advfirewall firewall add rule name="CityTools PostgreSQL" dir=in action=allow protocol=TCP localport=5432 profile=any >nul
+echo Firewall configured
 echo.
+
 
 REM ============================================
 REM STEP 1: POSTGRESQL INITIALIZATION

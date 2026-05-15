@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
     BarChart3, TrendingUp, ShoppingBag, DollarSign, Package, Users,
     Calendar, Download, RefreshCw, FileText, Target, AlertTriangle,
-    TrendingDown, Activity, PieChart
+    TrendingDown, Activity, PieChart, Wallet, Receipt, CreditCard, Banknote, Tag
 } from 'lucide-react';
 import apiClient from '../api/client';
 
@@ -236,17 +236,22 @@ export default function Reports() {
     const [dateRange, setDateRange] = useState<DateRange>(getToday());
     const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'overview' | 'sales' | 'financial' | 'inventory'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'sales' | 'financial' | 'inventory' | 'expenses'>('overview');
     const [showCustomDateRange, setShowCustomDateRange] = useState(false);
     const [customStartDate, setCustomStartDate] = useState('');
     const [customEndDate, setCustomEndDate] = useState('');
     // ✅ NEW: Platform sales state
     const [platformSales, setPlatformSales] = useState<PlatformSalesDetails | null>(null);
     const [loadingPlatformSales, setLoadingPlatformSales] = useState(false);
+    // Expenses & Suppliers for the selected period
+    const [expensesReport, setExpensesReport] = useState<any>(null);
+    const [suppliersReport, setSuppliersReport] = useState<any>(null);
 
     useEffect(() => {
         fetchReports();
         fetchPlatformSales(); // ✅ Fetch platform sales when date changes
+        fetchExpensesReport();
+        fetchSuppliersReport();
     }, [dateRange]);
 
     const handleCustomDateRange = () => {
@@ -364,188 +369,118 @@ export default function Reports() {
         }
     };
 
+    const fetchExpensesReport = async () => {
+        try {
+            const { data } = await apiClient.get('/expenses/stats', {
+                params: {
+                    dateFrom: dateRange.startDate,
+                    dateTo: dateRange.endDate,
+                }
+            });
+            setExpensesReport(data);
+        } catch (e) {
+            console.error('Failed to fetch expenses report', e);
+            setExpensesReport(null);
+        }
+    };
+
+    const fetchSuppliersReport = async () => {
+        try {
+            const { data } = await apiClient.get('/purchasing/suppliers/stats');
+            setSuppliersReport(data);
+        } catch (e) {
+            console.error('Failed to fetch suppliers report', e);
+            setSuppliersReport(null);
+        }
+    };
+
     const handleExport = async (format: 'pdf' | 'excel') => {
         if (!metrics) return;
 
+        const totalExpenses = Number(expensesReport?.totalExpenses || 0);
+        const totalExpensesCount = Number(expensesReport?.totalCount || 0);
+        const suppliersBalance = Number(suppliersReport?.totalBalance || 0);
+        const adjustedNetProfit = Number(metrics.financial.netProfit) - totalExpenses;
+        const safePercent = (num: number, den: number) => (den > 0 ? ((num / den) * 100).toFixed(1) : '0.0');
+
         if (format === 'pdf') {
-            // @ts-ignore
-            const jsPDF = (await import('jspdf')).default;
-            // @ts-ignore
-            const html2canvas = (await import('html2canvas')).default;
+            const jsPDFModule = await import('jspdf');
+            const html2canvasModule = await import('html2canvas');
+            const PDF = jsPDFModule.default;
+            const html2canvas = html2canvasModule.default;
+
+            const topChannel = (metrics.performance.salesByChannel || []).slice().sort((a, b) => b.total - a.total)[0];
+            const topProduct = (metrics.performance.topProducts || []).slice().sort((a, b) => b.revenue - a.revenue)[0];
+            const topExpenseCategory = (expensesReport?.byCategory || []).slice().sort((a: any, b: any) => Number(b.total || 0) - Number(a.total || 0))[0];
+            const returnRate = metrics.returns?.returnRate || (metrics.sales.totalRevenue > 0 ? (metrics.sales.totalReturns / metrics.sales.totalRevenue) * 100 : 0);
+            const inventoryRiskItems = Number(metrics.inventory.lowStockCount || 0) + Number(metrics.inventory.outOfStockCount || 0);
+            const expensesRatio = metrics.sales.totalRevenue > 0 ? (totalExpenses / metrics.sales.totalRevenue) * 100 : 0;
+            const actualMargin = metrics.sales.totalRevenue > 0 ? (adjustedNetProfit / metrics.sales.totalRevenue) * 100 : 0;
 
             const element = document.createElement('div');
             element.style.position = 'absolute';
-            element.style.left = '-9999px';
+            element.style.left = '-99999px';
             element.style.top = '0';
-            element.style.width = '800px';
-            element.style.padding = '40px';
-            element.style.background = 'white';
+            element.style.width = '1000px';
+            element.style.padding = '30px';
+            element.style.background = '#ffffff';
             element.style.direction = 'rtl';
-            element.style.fontFamily = 'Inter, system-ui, sans-serif';
+            element.style.fontFamily = 'Tahoma, Arial, sans-serif';
+            element.style.color = '#0f172a';
 
             element.innerHTML = `
-                <div style="margin-bottom: 40px; text-align: center; border-bottom: 4px solid #667eea; padding-bottom: 20px;">
-                    <h1 style="color: #667eea; font-size: 32px; margin-bottom: 10px;">تقرير المبيعات الشامل</h1>
-                    <p style="color: #64748b; font-size: 16px;">الفترة: ${dateRange.startDate} - ${dateRange.endDate}</p>
-                    <p style="color: #94a3b8; font-size: 14px;">تاريخ الإنشاء: ${new Date().toLocaleString('ar-EG')}</p>
+                <div style="border-bottom: 3px solid #4f46e5; padding-bottom: 14px; margin-bottom: 20px;">
+                    <h1 style="margin: 0 0 8px 0; font-size: 30px; color: #4f46e5;">تقرير النظرة العامة الشامل</h1>
+                    <div style="font-size: 14px; color: #475569;">الفترة: ${dateRange.startDate} إلى ${dateRange.endDate}</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 4px;">تاريخ الإنشاء: ${new Date().toLocaleString('ar-EG')}</div>
                 </div>
 
-                <!-- 1. EXECUTIVE SUMMARY -->
-                <div style="margin-bottom: 30px;">
-                    <h2 style="color: #1e293b; border-right: 4px solid #667eea; padding-right: 15px; margin-bottom: 20px; font-size: 20px;">الملخص التنفيذي</h2>
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
-                        <tr style="background: #f8fafc;">
-                            <th style="text-align: right; padding: 12px; border: 1px solid #e2e8f0; width: 60%;">المؤشر</th>
-                            <th style="text-align: left; padding: 12px; border: 1px solid #e2e8f0;">القيمة</th>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">إجمالي الإيرادات</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">${metrics.sales.totalRevenue.toFixed(2)} ر.س</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">عدد الفواتير</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">${metrics.sales.orderCount}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">المرتجعات</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0; color: #ef4444;">${metrics.sales.totalReturns.toFixed(2)} ر.س</td>
-                        </tr>
-                        <tr style="background: #f8fafc;">
-                            <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: 600;">صافي المبيعات</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">${metrics.sales.netSales.toFixed(2)} ر.س</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">إجمالي الربح</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">${metrics.financial.grossProfit.toFixed(2)} ر.س</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">هامش الربح</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">${metrics.financial.profitMargin.toFixed(1)}%</td>
-                        </tr>
-                        <tr style="background: #f0fdf4;">
-                            <td style="padding: 12px; border: 1px solid #e2e8f0; font-weight: 800;">صافي الربح النهائي</td>
-                            <td style="padding: 12px; border: 1px solid #e2e8f0; color: #15803d; font-weight: 800; font-size: 16px;">${metrics.financial.netProfit.toFixed(2)} ر.س</td>
-                        </tr>
-                    </table>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px;">
+                    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:10px;"><div style="font-size:12px;color:#166534;">إجمالي الإيرادات</div><div style="font-size:18px;font-weight:700;color:#15803d;">${metrics.sales.totalRevenue.toFixed(2)} ج.م</div></div>
+                    <div style="background:#eef2ff; border:1px solid #c7d2fe; border-radius:10px; padding:10px;"><div style="font-size:12px;color:#3730a3;">صافي الربح قبل المصروفات</div><div style="font-size:18px;font-weight:700;color:#4338ca;">${metrics.financial.netProfit.toFixed(2)} ج.م</div></div>
+                    <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:10px;"><div style="font-size:12px;color:#991b1b;">المصروفات التشغيلية</div><div style="font-size:18px;font-weight:700;color:#dc2626;">${totalExpenses.toFixed(2)} ج.م</div><div style="font-size:11px;color:#7f1d1d;">${totalExpensesCount} مصروف</div></div>
+                    <div style="background:${adjustedNetProfit >= 0 ? '#f0fdf4' : '#fef2f2'}; border:1px solid ${adjustedNetProfit >= 0 ? '#bbf7d0' : '#fecaca'}; border-radius:10px; padding:10px;"><div style="font-size:12px;color:${adjustedNetProfit >= 0 ? '#166534' : '#991b1b'};">صافي الربح الفعلي</div><div style="font-size:18px;font-weight:700;color:${adjustedNetProfit >= 0 ? '#16a34a' : '#dc2626'};">${adjustedNetProfit.toFixed(2)} ج.م</div><div style="font-size:11px;color:#475569;">هامش ${actualMargin.toFixed(1)}%</div></div>
                 </div>
 
-                <!-- 2. EXPENSE BREAKDOWN -->
-                <div style="margin-bottom: 30px;">
-                    <h2 style="color: #1e293b; border-right: 4px solid #ef4444; padding-right: 15px; margin-bottom: 20px; font-size: 20px;">تحليل المصروفات</h2>
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr style="background: #fef2f2;">
-                            <th style="text-align: right; padding: 12px; border: 1px solid #e2e8f0;">نوع المصروف</th>
-                            <th style="text-align: left; padding: 12px; border: 1px solid #e2e8f0;">المبلغ</th>
-                            <th style="text-align: left; padding: 12px; border: 1px solid #e2e8f0;">النسبة</th>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">تكلفة البضاعة</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">${metrics.financial.totalCost.toFixed(2)} ر.س</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">${((metrics.financial.totalCost / metrics.sales.totalRevenue) * 100 || 0).toFixed(1)}%</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">الضرائب</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">${metrics.financial.totalTax.toFixed(2)} ر.س</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">${((metrics.financial.totalTax / metrics.sales.totalRevenue) * 100 || 0).toFixed(1)}%</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">العمولات والرسوم</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">${metrics.financial.totalCommission.toFixed(2)} ر.س</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">${((metrics.financial.totalCommission / metrics.sales.totalRevenue) * 100 || 0).toFixed(1)}%</td>
-                        </tr>
-                    </table>
-                </div>
+                <h2 style="margin: 0 0 10px 0; font-size: 18px; color: #1e293b;">الملخص المالي للفترة</h2>
+                <table style="width:100%; border-collapse:collapse; margin-bottom: 18px;">
+                    <tr style="background:#f8fafc;"><th style="border:1px solid #e2e8f0; padding:8px; text-align:right;">البند</th><th style="border:1px solid #e2e8f0; padding:8px; text-align:left;">القيمة</th><th style="border:1px solid #e2e8f0; padding:8px; text-align:left;">النسبة</th></tr>
+                    <tr><td style="border:1px solid #e2e8f0; padding:8px;">صافي المبيعات</td><td style="border:1px solid #e2e8f0; padding:8px;">${metrics.sales.netSales.toFixed(2)} ج.م</td><td style="border:1px solid #e2e8f0; padding:8px;">100%</td></tr>
+                    <tr><td style="border:1px solid #e2e8f0; padding:8px;">تكلفة البضاعة</td><td style="border:1px solid #e2e8f0; padding:8px;">${metrics.financial.totalCost.toFixed(2)} ج.م</td><td style="border:1px solid #e2e8f0; padding:8px;">${safePercent(metrics.financial.totalCost, metrics.sales.totalRevenue)}%</td></tr>
+                    <tr><td style="border:1px solid #e2e8f0; padding:8px;">الضرائب</td><td style="border:1px solid #e2e8f0; padding:8px;">${metrics.financial.totalTax.toFixed(2)} ج.م</td><td style="border:1px solid #e2e8f0; padding:8px;">${safePercent(metrics.financial.totalTax, metrics.sales.totalRevenue)}%</td></tr>
+                    <tr><td style="border:1px solid #e2e8f0; padding:8px;">العمولات</td><td style="border:1px solid #e2e8f0; padding:8px;">${metrics.financial.totalCommission.toFixed(2)} ج.م</td><td style="border:1px solid #e2e8f0; padding:8px;">${safePercent(metrics.financial.totalCommission, metrics.sales.totalRevenue)}%</td></tr>
+                    <tr><td style="border:1px solid #e2e8f0; padding:8px;">المصروفات التشغيلية</td><td style="border:1px solid #e2e8f0; padding:8px; color:#dc2626;">${totalExpenses.toFixed(2)} ج.م</td><td style="border:1px solid #e2e8f0; padding:8px;">${expensesRatio.toFixed(1)}%</td></tr>
+                    <tr style="background:#f8fafc;"><td style="border:1px solid #e2e8f0; padding:8px; font-weight:700;">صافي الربح بعد المصروفات</td><td style="border:1px solid #e2e8f0; padding:8px; font-weight:700; color:${adjustedNetProfit >= 0 ? '#16a34a' : '#dc2626'};">${adjustedNetProfit.toFixed(2)} ج.م</td><td style="border:1px solid #e2e8f0; padding:8px; font-weight:700;">${actualMargin.toFixed(1)}%</td></tr>
+                </table>
 
-                <!-- 3. SALES BY CHANNEL -->
-                <div style="margin-bottom: 30px;">
-                    <h2 style="color: #1e293b; border-right: 4px solid #f59e0b; padding-right: 15px; margin-bottom: 20px; font-size: 20px;">المبيعات حسب القناة</h2>
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr style="background: #fffbeb;">
-                            <th style="text-align: right; padding: 12px; border: 1px solid #e2e8f0;">القناة</th>
-                            <th style="text-align: center; padding: 12px; border: 1px solid #e2e8f0;">العدد</th>
-                            <th style="text-align: left; padding: 12px; border: 1px solid #e2e8f0;">الإجمالي</th>
-                            <th style="text-align: left; padding: 12px; border: 1px solid #e2e8f0;">النسبة</th>
-                        </tr>
-                        ${metrics.performance.salesByChannel.map(ch => `
-                            <tr>
-                                <td style="padding: 10px; border: 1px solid #e2e8f0;">${ch.channelName || ch.channel}</td>
-                                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${ch.count}</td>
-                                <td style="padding: 10px; border: 1px solid #e2e8f0;">${ch.total.toFixed(2)} ر.س</td>
-                                <td style="padding: 10px; border: 1px solid #e2e8f0;">${ch.percentage.toFixed(1)}%</td>
-                            </tr>
-                        `).join('')}
-                    </table>
-                </div>
+                <h2 style="margin: 0 0 10px 0; font-size: 18px; color: #1e293b;">معلومات إضافية مهمة لنفس الفترة</h2>
+                <table style="width:100%; border-collapse:collapse; margin-bottom: 18px;">
+                    <tr style="background:#f8fafc;"><th style="border:1px solid #e2e8f0; padding:8px; text-align:right;">المؤشر</th><th style="border:1px solid #e2e8f0; padding:8px; text-align:right;">القيمة</th></tr>
+                    <tr><td style="border:1px solid #e2e8f0; padding:8px;">أكثر قناة مبيعات</td><td style="border:1px solid #e2e8f0; padding:8px;">${topChannel ? `${topChannel.channelName || topChannel.channel} (${topChannel.percentage.toFixed(1)}%)` : '-'}</td></tr>
+                    <tr><td style="border:1px solid #e2e8f0; padding:8px;">أعلى منتج بالإيراد</td><td style="border:1px solid #e2e8f0; padding:8px;">${topProduct ? `${topProduct.productName} (${topProduct.revenue.toFixed(2)} ج.م)` : '-'}</td></tr>
+                    <tr><td style="border:1px solid #e2e8f0; padding:8px;">أعلى تصنيف مصروفات</td><td style="border:1px solid #e2e8f0; padding:8px;">${topExpenseCategory ? `${topExpenseCategory.categoryNameAr || topExpenseCategory.categoryName} (${Number(topExpenseCategory.total || 0).toFixed(2)} ج.م)` : 'لا يوجد بيانات مصروفات'}</td></tr>
+                    <tr><td style="border:1px solid #e2e8f0; padding:8px;">نسبة المرتجعات من الإيراد</td><td style="border:1px solid #e2e8f0; padding:8px;">${returnRate.toFixed(2)}%</td></tr>
+                    <tr><td style="border:1px solid #e2e8f0; padding:8px;">ذمم الموردين</td><td style="border:1px solid #e2e8f0; padding:8px; color:#7c3aed;">${suppliersBalance.toFixed(2)} ج.م</td></tr>
+                    <tr><td style="border:1px solid #e2e8f0; padding:8px;">منتجات تحتاج متابعة مخزون</td><td style="border:1px solid #e2e8f0; padding:8px; color:${inventoryRiskItems > 0 ? '#d97706' : '#16a34a'};">${inventoryRiskItems} منتج</td></tr>
+                </table>
 
-                <!-- 4. TOP PRODUCTS -->
-                <div style="margin-bottom: 30px;">
-                    <h2 style="color: #1e293b; border-right: 4px solid #10b981; padding-right: 15px; margin-bottom: 20px; font-size: 20px;">أكثر المنتجات مبيعاً</h2>
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr style="background: #f0fdf4;">
-                            <th style="text-align: right; padding: 12px; border: 1px solid #e2e8f0;">المنتج</th>
-                            <th style="text-align: center; padding: 12px; border: 1px solid #e2e8f0;">الكمية</th>
-                            <th style="text-align: left; padding: 12px; border: 1px solid #e2e8f0;">الإيراد</th>
-                            <th style="text-align: left; padding: 12px; border: 1px solid #e2e8f0;">الربح</th>
+                ${expensesReport?.byCategory?.length > 0 ? `
+                <h2 style="margin: 0 0 10px 0; font-size: 18px; color: #1e293b;">تفصيل المصروفات حسب التصنيف</h2>
+                <table style="width:100%; border-collapse:collapse; margin-bottom: 10px;">
+                    <tr style="background:#f8fafc;"><th style="border:1px solid #e2e8f0; padding:8px; text-align:right;">التصنيف</th><th style="border:1px solid #e2e8f0; padding:8px; text-align:center;">العدد</th><th style="border:1px solid #e2e8f0; padding:8px; text-align:left;">الإجمالي</th><th style="border:1px solid #e2e8f0; padding:8px; text-align:left;">النسبة</th></tr>
+                    ${(expensesReport.byCategory || []).slice(0, 8).map((cat: any) => `
+                        <tr>
+                            <td style="border:1px solid #e2e8f0; padding:8px;">${cat.categoryNameAr || cat.categoryName || 'بدون تصنيف'}</td>
+                            <td style="border:1px solid #e2e8f0; padding:8px; text-align:center;">${Number(cat.count || 0)}</td>
+                            <td style="border:1px solid #e2e8f0; padding:8px;">${Number(cat.total || 0).toFixed(2)} ج.م</td>
+                            <td style="border:1px solid #e2e8f0; padding:8px;">${safePercent(Number(cat.total || 0), totalExpenses)}%</td>
                         </tr>
-                        ${metrics.performance.topProducts.slice(0, 10).map(p => `
-                            <tr>
-                                <td style="padding: 10px; border: 1px solid #e2e8f0;">${p.productName}</td>
-                                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${p.quantity}</td>
-                                <td style="padding: 10px; border: 1px solid #e2e8f0;">${p.revenue.toFixed(2)}</td>
-                                <td style="padding: 10px; border: 1px solid #e2e8f0; color: #059669;">${p.profit.toFixed(2)}</td>
-                            </tr>
-                        `).join('')}
-                    </table>
-                </div>
+                    `).join('')}
+                </table>
+                ` : ''}
 
-                <!-- 5. PAYMENT METHODS -->
-                <div style="margin-bottom: 30px;">
-                    <h2 style="color: #1e293b; border-right: 4px solid #8b5cf6; padding-right: 15px; margin-bottom: 20px; font-size: 20px;">طرق الدفع</h2>
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr style="background: #f5f3ff;">
-                            <th style="text-align: right; padding: 12px; border: 1px solid #e2e8f0;">الطريقة</th>
-                            <th style="text-align: center; padding: 12px; border: 1px solid #e2e8f0;">عدد العمليات</th>
-                            <th style="text-align: left; padding: 12px; border: 1px solid #e2e8f0;">الإجمالي</th>
-                        </tr>
-                        ${metrics.performance.salesByPayment.map(pm => `
-                            <tr>
-                                <td style="padding: 10px; border: 1px solid #e2e8f0;">${pm.method}</td>
-                                <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${pm.count}</td>
-                                <td style="padding: 10px; border: 1px solid #e2e8f0;">${pm.total.toFixed(2)} ر.س</td>
-                            </tr>
-                        `).join('')}
-                    </table>
-                </div>
-
-                <!-- 6. INVENTORY SUMMARY -->
-                <div style="margin-bottom: 30px;">
-                    <h2 style="color: #1e293b; border-right: 4px solid #06b6d4; padding-right: 15px; margin-bottom: 20px; font-size: 20px;">مخلص المخزون</h2>
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr style="background: #ecfeff;">
-                            <th style="text-align: right; padding: 12px; border: 1px solid #e2e8f0; width: 60%;">البيان</th>
-                            <th style="text-align: left; padding: 12px; border: 1px solid #e2e8f0;">القيمة</th>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">إجمالي قيمة المخزون</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">${metrics.inventory.totalStockValue.toFixed(2)} ر.س</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">إجمالي عدد المنتجات</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">${metrics.inventory.totalProducts}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">منتجات مخزونها منخفض</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0; color: #f59e0b;">${metrics.inventory.lowStockCount}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0;">منتجات نفذت من المخزون</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0; color: #ef4444;">${metrics.inventory.outOfStockCount}</td>
-                        </tr>
-                    </table>
-                </div>
-
-                <div style="margin-top: 50px; text-align: center; color: #94a3b8; font-size: 14px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-                    نظام الإدارة المتكامل - سحلة
+                <div style="margin-top: 18px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; text-align: center;">
+                    تقرير عربي تلقائي - نظام سحلة
                 </div>
             `;
 
@@ -555,65 +490,79 @@ export default function Reports() {
                 const canvas = await html2canvas(element, {
                     scale: 2,
                     useCORS: true,
-                    backgroundColor: '#ffffff'
+                    backgroundColor: '#ffffff',
                 });
 
                 const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const imgWidth = 190;
+                const pdf = new PDF('p', 'mm', 'a4');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const margin = 8;
+                const imgWidth = pageWidth - margin * 2;
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-                pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
-                pdf.save(`sales-report-${dateRange.startDate}-${dateRange.endDate}.pdf`);
+                let heightLeft = imgHeight;
+                let position = margin;
+
+                pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+                heightLeft -= (pageHeight - margin * 2);
+
+                while (heightLeft > 0) {
+                    pdf.addPage();
+                    position = margin - (imgHeight - heightLeft);
+                    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+                    heightLeft -= (pageHeight - margin * 2);
+                }
+
+                pdf.save(`overview-report-${dateRange.startDate}-${dateRange.endDate}.pdf`);
             } catch (err) {
                 console.error('PDF Generation Error:', err);
-                alert('حدث خطأ أثناء إنشاء الملف');
+                alert('حدث خطأ أثناء إنشاء ملف PDF');
             } finally {
                 document.body.removeChild(element);
             }
 
         } else {
-            // Excel export
-            // @ts-ignore
             const XLSX = await import('xlsx');
 
             const wb = XLSX.utils.book_new();
 
-            // === SUMMARY SHEET ===
             const summaryData = [
-                ['تقرير المبيعات الشامل'],
+                ['Overview Report (Sales + Expenses)'],
                 [`الفترة: ${dateRange.startDate} إلى ${dateRange.endDate}`],
                 [`تاريخ الإنشاء: ${new Date().toLocaleString('ar-EG')}`],
                 [],
                 ['البيان', 'القيمة', 'ملاحظات'],
-                ['إجمالي الإيرادات', metrics.sales.totalRevenue.toFixed(2), 'ر.س'],
+                ['إجمالي الإيرادات', metrics.sales.totalRevenue.toFixed(2), 'ج.م'],
                 ['عدد الفواتير', metrics.sales.orderCount, 'فاتورة'],
-                ['متوسط الفاتورة', metrics.sales.averageOrderValue.toFixed(2), 'ر.س'],
-                ['المرتجعات', metrics.sales.totalReturns.toFixed(2), 'ر.س'],
-                ['صافي المبيعات', metrics.sales.netSales.toFixed(2), 'ر.س'],
+                ['متوسط الفاتورة', metrics.sales.averageOrderValue.toFixed(2), 'ج.م'],
+                ['المرتجعات', metrics.sales.totalReturns.toFixed(2), 'ج.م'],
+                ['صافي المبيعات', metrics.sales.netSales.toFixed(2), 'ج.م'],
                 [],
                 ['البيانات المالية', '', ''],
                 ['التكلفة الإجمالية', metrics.financial.totalCost.toFixed(2), `${((metrics.financial.totalCost / metrics.sales.totalRevenue) * 100).toFixed(1)}% من الإيرادات`],
-                ['إجمالي الربح', metrics.financial.grossProfit.toFixed(2), 'ر.س'],
+                ['إجمالي الربح', metrics.financial.grossProfit.toFixed(2), 'ج.م'],
                 ['هامش الربح', `${metrics.financial.profitMargin.toFixed(1)}%`, 'نسبة مئوية'],
                 ['الضرائب المحصلة', metrics.financial.totalTax.toFixed(2), `${((metrics.financial.totalTax / metrics.sales.totalRevenue) * 100).toFixed(1)}%`],
                 ['العمولات والرسوم', metrics.financial.totalCommission.toFixed(2), `${((metrics.financial.totalCommission / metrics.sales.totalRevenue) * 100).toFixed(1)}%`],
-                ['صافي الربح النهائي', metrics.financial.netProfit.toFixed(2), 'ر.س'],
+                ['صافي الربح (قبل المصروفات التشغيلية)', metrics.financial.netProfit.toFixed(2), 'ج.م'],
+                ['المصروفات التشغيلية', totalExpenses.toFixed(2), `${totalExpensesCount} مصروف`],
+                ['صافي الربح الفعلي (بعد المصروفات)', adjustedNetProfit.toFixed(2), 'ج.م'],
+                ['ذمم الموردين', suppliersBalance.toFixed(2), 'ج.م'],
                 [],
                 ['المخزون', '', ''],
-                ['قيمة المخزون الإجمالية', metrics.inventory.totalStockValue.toFixed(2), 'ر.س'],
+                ['قيمة المخزون الإجمالية', metrics.inventory.totalStockValue.toFixed(2), 'ج.م'],
                 ['عدد المنتجات', metrics.inventory.totalProducts, 'منتج'],
             ];
             const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
             ws1['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 30 }];
             XLSX.utils.book_append_sheet(wb, ws1, 'الملخص التنفيذي');
 
-            // === EXPENSE BREAKDOWN SHEET ===
             const expenseData = [
                 ['تفصيل المصروفات والضرائب'],
                 [`الفترة: ${dateRange.startDate} إلى ${dateRange.endDate}`],
                 [],
-                ['نوع المصروف', 'المبلغ (ر.س)', '% من الإيرادات', '% من الربح الإجمالي', 'تفاصيل'],
+                ['نوع المصروف', 'المبلغ (ج.م)', '% من الإيرادات', '% من الربح الإجمالي', 'تفاصيل'],
                 [
                     'تكلفة البضاعة المباعة (COGS)',
                     metrics.financial.totalCost.toFixed(2),
@@ -638,17 +587,35 @@ export default function Reports() {
                 [],
                 ['إجمالي المصروفات', (metrics.financial.totalCost + metrics.financial.totalTax + metrics.financial.totalCommission).toFixed(2), (((metrics.financial.totalCost + metrics.financial.totalTax + metrics.financial.totalCommission) / metrics.sales.totalRevenue) * 100).toFixed(2), '', ''],
                 ['صافي الربح بعد المصروفات', metrics.financial.netProfit.toFixed(2), ((metrics.financial.netProfit / metrics.sales.totalRevenue) * 100).toFixed(2), '100%', 'الربح النهائي'],
+                ['صافي الربح الفعلي بعد المصروفات التشغيلية', adjustedNetProfit.toFixed(2), safePercent(adjustedNetProfit, metrics.sales.totalRevenue), 'بعد خصم OpEx', 'المؤشر الأهم'],
             ];
             const ws1a = XLSX.utils.aoa_to_sheet(expenseData);
             ws1a['!cols'] = [{ wch: 35 }, { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 35 }];
             XLSX.utils.book_append_sheet(wb, ws1a, 'تفصيل المصروفات');
 
-            // === SALES BY CHANNEL SHEET ===
+            if (expensesReport?.byCategory?.length > 0) {
+                const expenseCatData = [
+                    ['المصروفات حسب التصنيف'],
+                    [`الفترة: ${dateRange.startDate} إلى ${dateRange.endDate}`],
+                    [],
+                    ['التصنيف', 'عدد المصروفات', 'الإجمالي (ج.م)', '% من إجمالي المصروفات'],
+                    ...expensesReport.byCategory.map((cat: any) => [
+                        cat.categoryNameAr || cat.categoryName || 'بدون تصنيف',
+                        Number(cat.count || 0),
+                        Number(cat.total || 0).toFixed(2),
+                        `${safePercent(Number(cat.total || 0), totalExpenses)}%`,
+                    ]),
+                ];
+                const wsExpCats = XLSX.utils.aoa_to_sheet(expenseCatData);
+                wsExpCats['!cols'] = [{ wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 20 }];
+                XLSX.utils.book_append_sheet(wb, wsExpCats, 'تصنيفات المصروفات');
+            }
+
             const channelData = [
                 ['تحليل المبيعات حسب القناة'],
                 [`الفترة: ${dateRange.startDate} إلى ${dateRange.endDate}`],
                 [],
-                ['القناة', 'عدد الفواتير', 'إجمالي المبيعات (ر.س)', 'النسبة %', 'متوسط الفاتورة', 'أعلى فاتورة', 'أقل فاتورة'],
+                ['القناة', 'عدد الفواتير', 'إجمالي المبيعات (ج.م)', 'النسبة %', 'متوسط الفاتورة', 'أعلى فاتورة', 'أقل فاتورة'],
                 ...metrics.performance.salesByChannel.map(ch => [
                     ch.channelName || ch.channel,
                     ch.count,
@@ -670,7 +637,7 @@ export default function Reports() {
                 ['تحليل أفضل المنتجات'],
                 [`الفترة: ${dateRange.startDate} إلى ${dateRange.endDate}`],
                 [],
-                ['المنتج', 'الكمية المباعة', 'الإيرادات (ر.س)', 'التكلفة المتوقعة', 'الربح (ر.س)', 'هامش الربح %', 'سعر الوحدة', 'تصنيف الأداء'],
+                ['المنتج', 'الكمية المباعة', 'الإيرادات (ج.م)', 'التكلفة المتوقعة', 'الربح (ج.م)', 'هامش الربح %', 'سعر الوحدة', 'تصنيف الأداء'],
                 ...metrics.performance.topProducts.map((p, idx) => [
                     p.productName,
                     p.quantity,
@@ -693,7 +660,7 @@ export default function Reports() {
                 ['تفصيل طرق الدفع'],
                 [`الفترة: ${dateRange.startDate} إلى ${dateRange.endDate}`],
                 [],
-                ['طريقة الدفع', 'عدد العمليات', 'إجمالي المبلغ (ر.س)', 'النسبة من الإجمالي %', 'متوسط العملية', 'الحد الأقصى', 'الحد الأدنى'],
+                ['طريقة الدفع', 'عدد العمليات', 'إجمالي المبلغ (ج.م)', 'النسبة من الإجمالي %', 'متوسط العملية', 'الحد الأقصى', 'الحد الأدنى'],
                 ...metrics.performance.salesByPayment.map(pm => [
                     pm.method,
                     pm.count,
@@ -715,7 +682,7 @@ export default function Reports() {
                 ['مبيعات الأقسام (التصنيفات)'],
                 [`الفترة: ${dateRange.startDate} إلى ${dateRange.endDate}`],
                 [],
-                ['القسم', 'عدد القطع المباعة', 'إجمالي المبيعات (ر.س)', 'متوسط سعر القطعة', 'النسبة من الإجمالي %'],
+                ['القسم', 'عدد القطع المباعة', 'إجمالي المبيعات (ج.م)', 'متوسط سعر القطعة', 'النسبة من الإجمالي %'],
                 ...(metrics.performance.salesByCategory || []).map(cat => [
                     cat.name,
                     cat.count,
@@ -735,7 +702,7 @@ export default function Reports() {
                 ['تحليل المبيعات بالساعة'],
                 [`الفترة: ${dateRange.startDate} إلى ${dateRange.endDate}`],
                 [],
-                ['الساعة', 'عدد الفواتير', 'إجمالي المبيعات (ر.س)', 'متوسط الفاتورة', 'نشاط الساعة'],
+                ['الساعة', 'عدد الفواتير', 'إجمالي المبيعات (ج.م)', 'متوسط الفاتورة', 'نشاط الساعة'],
                 ...(metrics.performance.hourlyStats || []).map(h => [
                     h.hour,
                     h.count,
@@ -756,7 +723,7 @@ export default function Reports() {
                 [`تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')}`],
                 [],
                 ['بيان المخزون', 'القيمة', 'النسبة %', 'ملاحظات'],
-                ['إجمالي قيمة المخزون', `${metrics.inventory.totalStockValue.toFixed(2)} ر.س`, '100%', 'القيمة الإجمالية للمخزون الحالي'],
+                ['إجمالي قيمة المخزون', `${metrics.inventory.totalStockValue.toFixed(2)} ج.م`, '100%', 'القيمة الإجمالية للمخزون الحالي'],
                 ['إجمالي عدد المنتجات', metrics.inventory.totalProducts.toString(), '100%', 'عدد المنتجات المختلفة'],
                 [],
                 ['حالة المخزون', '', '', ''],
@@ -783,14 +750,14 @@ export default function Reports() {
                 ['نسبة التكلفة إلى الإيرادات', `${((metrics.financial.totalCost / metrics.sales.totalRevenue) * 100).toFixed(1)}%`, '< 70%', ((metrics.financial.totalCost / metrics.sales.totalRevenue) * 100) < 70 ? 'جيد ✓' : 'مرتفع'],
                 ['نسبة الضرائب', `${((metrics.financial.totalTax / metrics.sales.totalRevenue) * 100).toFixed(1)}%`, '', 'معلومات'],
                 ['نسبة العمولات', `${((metrics.financial.totalCommission / metrics.sales.totalRevenue) * 100).toFixed(1)}%`, '< 10%', ((metrics.financial.totalCommission / metrics.sales.totalRevenue) * 100) < 10 ? 'جيد ✓' : 'مرتفع'],
-                ['متوسط قيمة الفاتورة', `${metrics.sales.averageOrderValue.toFixed(2)} ر.س`, '', 'معلومات'],
+                ['متوسط قيمة الفاتورة', `${metrics.sales.averageOrderValue.toFixed(2)} ج.م`, '', 'معلومات'],
                 ['معدل دوران المخزون', `${((metrics.sales.totalRevenue / metrics.inventory.totalStockValue) || 0).toFixed(2)} مرة`, '> 4', 'معلومات'],
             ];
             const ws6 = XLSX.utils.aoa_to_sheet(ratiosData);
             ws6['!cols'] = [{ wch: 35 }, { wch: 18 }, { wch: 15 }, { wch: 20 }];
             XLSX.utils.book_append_sheet(wb, ws6, 'النسب المالية');
 
-            XLSX.writeFile(wb, `sales-report-${dateRange.startDate}-${dateRange.endDate}.xlsx`);
+            XLSX.writeFile(wb, `overview-report-${dateRange.startDate}-${dateRange.endDate}.xlsx`);
         }
     };
 
@@ -1101,7 +1068,8 @@ export default function Reports() {
                     { id: 'overview', label: 'نظرة عامة', icon: Activity },
                     { id: 'sales', label: 'المبيعات', icon: TrendingUp },
                     { id: 'financial', label: 'التحليل المالي', icon: DollarSign },
-                    { id: 'inventory', label: 'المخزون', icon: Package }
+                    { id: 'inventory', label: 'المخزون', icon: Package },
+                    { id: 'expenses', label: 'المصروفات', icon: Wallet }
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -1137,13 +1105,13 @@ export default function Reports() {
                     {/* KPI Cards */}
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
                         gap: '20px',
                         marginBottom: '32px'
                     }}>
                         <StatCard
                             title="إجمالي المبيعات"
-                            value={`${metrics.sales.totalRevenue.toFixed(2)} ر.س`}
+                            value={`${metrics.sales.totalRevenue.toFixed(2)} ج.م`}
                             subtitle={`${metrics.sales.orderCount} فاتورة`}
                             icon={DollarSign}
                             color="#10b981"
@@ -1151,22 +1119,36 @@ export default function Reports() {
                         />
                         <StatCard
                             title="صافي الربح"
-                            value={`${metrics.financial.netProfit.toFixed(2)} ر.س`}
+                            value={`${metrics.financial.netProfit.toFixed(2)} ج.م`}
                             subtitle={`هامش ${metrics.financial.profitMargin.toFixed(1)}%`}
                             icon={TrendingUp}
                             color="#6366f1"
                             change={metrics.comparison?.changes.profitChange}
                         />
                         <StatCard
+                            title="المصروفات التشغيلية"
+                            value={`${Number(expensesReport?.totalExpenses || 0).toFixed(2)} ج.م`}
+                            subtitle={`${Number(expensesReport?.totalCount || 0)} مصروف`}
+                            icon={Wallet}
+                            color="#dc2626"
+                        />
+                        <StatCard
+                            title="الربح الفعلي بعد المصروفات"
+                            value={`${(metrics.financial.netProfit - Number(expensesReport?.totalExpenses || 0)).toFixed(2)} ج.م`}
+                            subtitle={`ذمم الموردين: ${Number(suppliersReport?.totalBalance || 0).toFixed(2)} ج.م`}
+                            icon={CreditCard}
+                            color={(metrics.financial.netProfit - Number(expensesReport?.totalExpenses || 0)) >= 0 ? '#10b981' : '#dc2626'}
+                        />
+                        <StatCard
                             title="قيمة المخزون"
-                            value={`${metrics.inventory.totalStockValue.toFixed(2)} ر.س`}
+                            value={`${metrics.inventory.totalStockValue.toFixed(2)} ج.م`}
                             subtitle={`${metrics.inventory.totalProducts} منتج`}
                             icon={Package}
                             color="#f59e0b"
                         />
                         <StatCard
                             title="متوسط الفاتورة"
-                            value={`${metrics.sales.averageOrderValue.toFixed(2)} ر.س`}
+                            value={`${metrics.sales.averageOrderValue.toFixed(2)} ج.م`}
                             subtitle="لكل عملية بيع"
                             icon={Target}
                             color="#8b5cf6"
@@ -1209,7 +1191,7 @@ export default function Reports() {
                                         </div>
                                         <div style={{ textAlign: 'left' }}>
                                             <div style={{ fontWeight: '700', color: '#10b981', fontSize: '15px' }}>
-                                                {product.revenue.toFixed(2)} ر.س
+                                                {product.revenue.toFixed(2)} ج.م
                                             </div>
                                             <div style={{ fontSize: '12px', color: '#6366f1' }}>
                                                 ربح: {product.profit.toFixed(2)}
@@ -1238,7 +1220,7 @@ export default function Reports() {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                                             <span style={{ fontWeight: '600', color: '#0f172a' }}>{channel.channelName || channel.channel}</span>
                                             <span style={{ fontWeight: '700', color: '#6366f1' }}>
-                                                {channel.total.toFixed(2)} ر.س ({channel.percentage.toFixed(1)}%)
+                                                {channel.total.toFixed(2)} ج.م ({channel.percentage.toFixed(1)}%)
                                             </span>
                                         </div>
                                         <div style={{
@@ -1287,7 +1269,7 @@ export default function Reports() {
                                     </div>
                                     <div style={{ textAlign: 'left' }}>
                                         <div style={{ fontSize: '28px', fontWeight: '800', marginBottom: '4px' }}>
-                                            {platformSales.summary.netRevenue.toFixed(2)} ر.س
+                                            {platformSales.summary.netRevenue.toFixed(2)} ج.م
                                         </div>
                                         <div style={{ fontSize: '13px', opacity: 0.9 }}>صافي الإيرادات</div>
                                     </div>
@@ -1310,7 +1292,7 @@ export default function Reports() {
                                 }}>
                                     <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>إجمالي الربح</div>
                                     <div style={{ fontSize: '24px', fontWeight: '700', color: '#10b981' }}>
-                                        {platformSales.summary.grossProfit.toFixed(2)} ر.س
+                                        {platformSales.summary.grossProfit.toFixed(2)} ج.م
                                     </div>
                                     <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
                                         هامش {platformSales.summary.avgProfitMargin.toFixed(1)}%
@@ -1325,7 +1307,7 @@ export default function Reports() {
                                 }}>
                                     <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>صافي الربح</div>
                                     <div style={{ fontSize: '24px', fontWeight: '700', color: '#6366f1' }}>
-                                        {platformSales.summary.netProfit.toFixed(2)} ر.س
+                                        {platformSales.summary.netProfit.toFixed(2)} ج.م
                                     </div>
                                     <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
                                         بعد العمولات والضرائب
@@ -1340,7 +1322,7 @@ export default function Reports() {
                                 }}>
                                     <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>إجمالي العمولات</div>
                                     <div style={{ fontSize: '24px', fontWeight: '700', color: '#f59e0b' }}>
-                                        {platformSales.summary.commission.toFixed(2)} ر.س
+                                        {platformSales.summary.commission.toFixed(2)} ج.م
                                     </div>
                                     <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
                                         رسوم المنصات
@@ -1355,10 +1337,10 @@ export default function Reports() {
                                 }}>
                                     <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>المرتجعات</div>
                                     <div style={{ fontSize: '24px', fontWeight: '700', color: '#ef4444' }}>
-                                        {platformSales.summary.refunded.toFixed(2)} ر.س
+                                        {platformSales.summary.refunded.toFixed(2)} ج.م
                                     </div>
                                     <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                                        من {platformSales.summary.grossRevenue.toFixed(2)} ر.س
+                                        من {platformSales.summary.grossRevenue.toFixed(2)} ج.م
                                     </div>
                                 </div>
                             </div>
@@ -1369,7 +1351,7 @@ export default function Reports() {
                                     const change = platformSales.comparison?.platformChanges.find(
                                         c => c.platform === platform.platform
                                     );
-                                    
+
                                     return (
                                         <div key={platform.platform} style={{
                                             background: 'white',
@@ -1443,7 +1425,7 @@ export default function Reports() {
                                                 </div>
                                                 <div style={{ textAlign: 'left' }}>
                                                     <div style={{ fontSize: '28px', fontWeight: '800', color: '#667eea', marginBottom: '4px' }}>
-                                                        {platform.netRevenue.toFixed(2)} ر.س
+                                                        {platform.netRevenue.toFixed(2)} ج.م
                                                     </div>
                                                     <div style={{ fontSize: '13px', color: '#64748b' }}>
                                                         {platform.revenuePercentage.toFixed(1)}% من الإجمالي
@@ -1461,13 +1443,13 @@ export default function Reports() {
                                                 <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                                                     <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '6px' }}>إجمالي الإيرادات</div>
                                                     <div style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a' }}>
-                                                        {platform.grossRevenue.toFixed(2)} ر.س
+                                                        {platform.grossRevenue.toFixed(2)} ج.م
                                                     </div>
                                                 </div>
                                                 <div style={{ padding: '16px', background: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
                                                     <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '6px' }}>إجمالي الربح</div>
                                                     <div style={{ fontSize: '20px', fontWeight: '700', color: '#10b981' }}>
-                                                        {platform.grossProfit.toFixed(2)} ر.س
+                                                        {platform.grossProfit.toFixed(2)} ج.م
                                                     </div>
                                                     <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
                                                         هامش {platform.profitMargin.toFixed(1)}%
@@ -1476,7 +1458,7 @@ export default function Reports() {
                                                 <div style={{ padding: '16px', background: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe' }}>
                                                     <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '6px' }}>صافي الربح</div>
                                                     <div style={{ fontSize: '20px', fontWeight: '700', color: '#6366f1' }}>
-                                                        {platform.netProfit.toFixed(2)} ر.س
+                                                        {platform.netProfit.toFixed(2)} ج.م
                                                     </div>
                                                     <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
                                                         هامش {platform.netProfitMargin.toFixed(1)}%
@@ -1485,7 +1467,7 @@ export default function Reports() {
                                                 <div style={{ padding: '16px', background: '#fef3c7', borderRadius: '12px', border: '1px solid #fde68a' }}>
                                                     <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '6px' }}>متوسط الفاتورة</div>
                                                     <div style={{ fontSize: '20px', fontWeight: '700', color: '#d97706' }}>
-                                                        {platform.avgOrderValue.toFixed(2)} ر.س
+                                                        {platform.avgOrderValue.toFixed(2)} ج.م
                                                     </div>
                                                     <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
                                                         ربح: {platform.avgProfit.toFixed(2)}
@@ -1506,13 +1488,13 @@ export default function Reports() {
                                                 <div>
                                                     <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>تكلفة البضاعة</div>
                                                     <div style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>
-                                                        {platform.costOfGoods.toFixed(2)} ر.س
+                                                        {platform.costOfGoods.toFixed(2)} ج.م
                                                     </div>
                                                 </div>
                                                 <div>
                                                     <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>العمولة</div>
                                                     <div style={{ fontSize: '16px', fontWeight: '700', color: '#f59e0b' }}>
-                                                        {platform.commission.toFixed(2)} ر.س
+                                                        {platform.commission.toFixed(2)} ج.م
                                                     </div>
                                                     <div style={{ fontSize: '10px', color: '#6b7280' }}>
                                                         {platform.actualCommissionRate.toFixed(2)}% (قياسي: {platform.configuredCommissionRate.toFixed(2)}%)
@@ -1521,7 +1503,7 @@ export default function Reports() {
                                                 <div>
                                                     <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>الضريبة</div>
                                                     <div style={{ fontSize: '16px', fontWeight: '700', color: '#ef4444' }}>
-                                                        {platform.tax.toFixed(2)} ر.س
+                                                        {platform.tax.toFixed(2)} ج.م
                                                     </div>
                                                     <div style={{ fontSize: '10px', color: '#6b7280' }}>
                                                         {platform.actualTaxRate.toFixed(2)}% (قياسي: {platform.configuredTaxRate.toFixed(2)}%)
@@ -1530,7 +1512,7 @@ export default function Reports() {
                                                 <div>
                                                     <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>المرتجعات</div>
                                                     <div style={{ fontSize: '16px', fontWeight: '700', color: '#dc2626' }}>
-                                                        {platform.refunded.toFixed(2)} ر.س
+                                                        {platform.refunded.toFixed(2)} ج.م
                                                     </div>
                                                     <div style={{ fontSize: '10px', color: '#6b7280' }}>
                                                         معدل {platform.refundRate.toFixed(2)}%
@@ -1648,7 +1630,7 @@ export default function Reports() {
                                             <span style={{ fontWeight: '600', color: '#0f172a' }}>{customer.name}</span>
                                             <span style={{ fontSize: '12px', color: '#64748b', marginRight: '8px' }}>({customer.orderCount} طلب)</span>
                                         </div>
-                                        <div style={{ fontWeight: '700', color: '#10b981' }}>{customer.totalRevenue.toFixed(0)} ر.س</div>
+                                        <div style={{ fontWeight: '700', color: '#10b981' }}>{customer.totalRevenue.toFixed(0)} ج.م</div>
                                     </div>
                                 ))}
                             </div>
@@ -1700,7 +1682,7 @@ export default function Reports() {
                                                 </span>
                                                 <div>
                                                     <span style={{ fontWeight: '600', color: '#64748b' }}>{rt.qty} قطعة</span>
-                                                    <span style={{ marginRight: '12px', fontWeight: '700', color: '#dc2626' }}>{rt.value.toFixed(0)} ر.س</span>
+                                                    <span style={{ marginRight: '12px', fontWeight: '700', color: '#dc2626' }}>{rt.value.toFixed(0)} ج.م</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -1759,26 +1741,26 @@ export default function Reports() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
                     <StatCard
                         title="إجمالي الإيرادات"
-                        value={`${metrics.sales.totalRevenue.toFixed(2)} ر.س`}
+                        value={`${metrics.sales.totalRevenue.toFixed(2)} ج.م`}
                         subtitle={`${metrics.sales.orderCount} فاتورة`}
                         icon={DollarSign}
                         color="#10b981"
                     />
                     <StatCard
                         title="متوسط الفاتورة"
-                        value={`${metrics.sales.averageOrderValue.toFixed(2)} ر.س`}
+                        value={`${metrics.sales.averageOrderValue.toFixed(2)} ج.م`}
                         icon={Target}
                         color="#8b5cf6"
                     />
                     <StatCard
                         title="المرتجعات"
-                        value={`${metrics.sales.totalReturns.toFixed(2)} ر.س`}
+                        value={`${metrics.sales.totalReturns.toFixed(2)} ج.م`}
                         icon={TrendingDown}
                         color="#ef4444"
                     />
                     <StatCard
                         title="صافي المبيعات"
-                        value={`${metrics.sales.netSales.toFixed(2)} ر.س`}
+                        value={`${metrics.sales.netSales.toFixed(2)} ج.م`}
                         icon={TrendingUp}
                         color="#6366f1"
                     />
@@ -1787,38 +1769,219 @@ export default function Reports() {
 
             {/* Financial Tab */}
             {activeTab === 'financial' && metrics && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-                    <StatCard
-                        title="إجمالي الربح"
-                        value={`${metrics.financial.grossProfit.toFixed(2)} ر.س`}
-                        subtitle={`هامش ${metrics.financial.profitMargin.toFixed(1)}%`}
-                        icon={TrendingUp}
-                        color="#10b981"
-                    />
-                    <StatCard
-                        title="التكلفة الإجمالية"
-                        value={`${metrics.financial.totalCost.toFixed(2)} ر.س`}
-                        icon={DollarSign}
-                        color="#ef4444"
-                    />
-                    <StatCard
-                        title="الضرائب"
-                        value={`${metrics.financial.totalTax.toFixed(2)} ر.س`}
-                        icon={FileText}
-                        color="#f59e0b"
-                    />
-                    <StatCard
-                        title="العمولات"
-                        value={`${metrics.financial.totalCommission.toFixed(2)} ر.س`}
-                        icon={Users}
-                        color="#8b5cf6"
-                    />
-                    <StatCard
-                        title="صافي الربح"
-                        value={`${metrics.financial.netProfit.toFixed(2)} ر.س`}
-                        icon={TrendingUp}
-                        color="#6366f1"
-                    />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                        <StatCard
+                            title="إجمالي الربح"
+                            value={`${metrics.financial.grossProfit.toFixed(2)} ج.م`}
+                            subtitle={`هامش ${metrics.financial.profitMargin.toFixed(1)}%`}
+                            icon={TrendingUp}
+                            color="#10b981"
+                        />
+                        <StatCard
+                            title="التكلفة الإجمالية"
+                            value={`${metrics.financial.totalCost.toFixed(2)} ج.م`}
+                            icon={DollarSign}
+                            color="#ef4444"
+                        />
+                        <StatCard
+                            title="الضرائب"
+                            value={`${metrics.financial.totalTax.toFixed(2)} ج.م`}
+                            icon={FileText}
+                            color="#f59e0b"
+                        />
+                        <StatCard
+                            title="العمولات"
+                            value={`${metrics.financial.totalCommission.toFixed(2)} ج.م`}
+                            icon={Users}
+                            color="#8b5cf6"
+                        />
+                        <StatCard
+                            title="صافي الربح (قبل المصروفات)"
+                            value={`${metrics.financial.netProfit.toFixed(2)} ج.م`}
+                            icon={TrendingUp}
+                            color="#6366f1"
+                        />
+                        {expensesReport && (
+                            <StatCard
+                                title="المصروفات التشغيلية"
+                                value={`${Number(expensesReport.totalExpenses).toFixed(2)} ج.م`}
+                                subtitle={`${expensesReport.totalCount} مصروف`}
+                                icon={Wallet}
+                                color="#dc2626"
+                            />
+                        )}
+                        {expensesReport && (
+                            <StatCard
+                                title="الربح الحقيقي النهائي"
+                                value={`${(metrics.financial.netProfit - Number(expensesReport.totalExpenses)).toFixed(2)} ج.م`}
+                                subtitle="بعد خصم المصروفات التشغيلية"
+                                icon={TrendingDown}
+                                color={(metrics.financial.netProfit - Number(expensesReport.totalExpenses)) >= 0 ? '#10b981' : '#dc2626'}
+                            />
+                        )}
+                    </div>
+
+                    {expensesReport && expensesReport.byCategory && expensesReport.byCategory.length > 0 && (
+                        <div style={{ background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                                <Wallet size={20} color="#dc2626" />
+                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>توزيع المصروفات التشغيلية</h3>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                {expensesReport.byCategory.map((cat: any, i: number) => (
+                                    <div key={i} style={{ background: `${cat.color}10`, border: `1px solid ${cat.color}30`, borderRadius: '12px', padding: '12px 16px', minWidth: '150px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: cat.color }} />
+                                            <span style={{ fontWeight: '600', color: '#374151', fontSize: '13px' }}>{cat.categoryNameAr || cat.categoryName}</span>
+                                        </div>
+                                        <div style={{ fontSize: '18px', fontWeight: '700', color: cat.color }}>{Number(cat.total).toFixed(2)} ج.م</div>
+                                        <div style={{ fontSize: '12px', color: '#6b7280' }}>{cat.count} مصروف</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {suppliersReport && (
+                        <div style={{ background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                                <CreditCard size={20} color="#8b5cf6" />
+                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>ذمم الموردين</h3>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+                                {[
+                                    { label: 'إجمالي الفواتير', value: Number(suppliersReport.totalInvoiced).toFixed(2) + ' ج.م', color: '#3b82f6' },
+                                    { label: 'المدفوع', value: Number(suppliersReport.totalPaid).toFixed(2) + ' ج.م', color: '#10b981' },
+                                    { label: 'الرصيد المستحق', value: Number(suppliersReport.totalBalance).toFixed(2) + ' ج.م', color: '#dc2626' },
+                                    { label: 'موردون لهم رصيد', value: String(suppliersReport.suppliersWithBalance), color: '#f59e0b' },
+                                ].map((item, i) => (
+                                    <div key={i} style={{ background: `${item.color}10`, borderRadius: '10px', padding: '14px', border: `1px solid ${item.color}25` }}>
+                                        <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>{item.label}</div>
+                                        <div style={{ fontSize: '18px', fontWeight: '700', color: item.color }}>{item.value}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Expenses Tab */}
+            {activeTab === 'expenses' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {!expensesReport ? (
+                        <div style={{ textAlign: 'center', padding: '60px', color: '#64748b' }}>
+                            <p>جاري تحميل بيانات المصروفات...</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                <StatCard title="إجمالي المصروفات" value={`${Number(expensesReport.totalExpenses).toFixed(2)} ج.م`}
+                                    subtitle={`${expensesReport.totalCount} مصروف`} icon={Wallet} color="#dc2626" />
+                                <StatCard title="مصروفات اليوم" value={`${Number(expensesReport.todayExpenses).toFixed(2)} ج.م`}
+                                    subtitle={`${expensesReport.todayCount} مصروف`} icon={Receipt} color="#f97316" />
+                                <StatCard title="مصروفات الشهر" value={`${Number(expensesReport.monthExpenses).toFixed(2)} ج.م`}
+                                    subtitle={`${expensesReport.monthCount} مصروف`} icon={Calendar} color="#3b82f6" />
+                                <StatCard title="مصروفات متكررة" value={expensesReport.recurringCount} subtitle="اشتراك شهري" icon={TrendingDown} color="#8b5cf6" />
+                                {metrics && <StatCard title="المصروفات من الربح"
+                                    value={metrics.financial.netProfit > 0 ? `${((Number(expensesReport.totalExpenses) / metrics.financial.netProfit) * 100).toFixed(1)}%` : '-'}
+                                    subtitle="نسبة من صافي الربح" icon={PieChart} color="#f59e0b" />}
+                                {metrics && <StatCard title="الربح الحقيقي النهائي"
+                                    value={`${(metrics.financial.netProfit - Number(expensesReport.totalExpenses)).toFixed(2)} ج.م`}
+                                    subtitle="بعد المصروفات التشغيلية" icon={TrendingUp}
+                                    color={(metrics.financial.netProfit - Number(expensesReport.totalExpenses)) >= 0 ? '#10b981' : '#dc2626'} />}
+                            </div>
+
+                            {expensesReport.byCategory && expensesReport.byCategory.length > 0 && (
+                                <div style={{ background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                                        <Tag size={18} color="#6366f1" />
+                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>المصروفات حسب التصنيف</h3>
+                                    </div>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                        <thead>
+                                            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                                                <th style={{ padding: '12px', textAlign: 'right', color: '#475569', fontWeight: '600' }}>التصنيف</th>
+                                                <th style={{ padding: '12px', textAlign: 'right', color: '#475569', fontWeight: '600' }}>عدد المصروفات</th>
+                                                <th style={{ padding: '12px', textAlign: 'right', color: '#475569', fontWeight: '600' }}>الإجمالي</th>
+                                                <th style={{ padding: '12px', textAlign: 'right', color: '#475569', fontWeight: '600' }}>النسبة</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {expensesReport.byCategory.map((cat: any, i: number) => {
+                                                const pct = expensesReport.totalExpenses > 0 ? ((Number(cat.total) / Number(expensesReport.totalExpenses)) * 100).toFixed(1) : '0';
+                                                return (
+                                                    <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                                        <td style={{ padding: '12px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: cat.color }} />
+                                                                <span style={{ fontWeight: '500', color: '#374151' }}>{cat.categoryNameAr || cat.categoryName}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '12px', color: '#64748b' }}>{cat.count}</td>
+                                                        <td style={{ padding: '12px', fontWeight: '700', color: '#dc2626' }}>{Number(cat.total).toFixed(2)} ج.م</td>
+                                                        <td style={{ padding: '12px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <div style={{ flex: 1, height: '6px', background: '#e2e8f0', borderRadius: '3px' }}>
+                                                                    <div style={{ width: `${pct}%`, height: '100%', background: cat.color, borderRadius: '3px' }} />
+                                                                </div>
+                                                                <span style={{ fontSize: '13px', color: '#64748b', width: '40px' }}>{pct}%</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {expensesReport.byPaymentMethod && expensesReport.byPaymentMethod.length > 0 && (
+                                <div style={{ background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                                        <CreditCard size={18} color="#3b82f6" />
+                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>المصروفات حسب طريقة الدفع</h3>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                        {expensesReport.byPaymentMethod.map((pm: any, i: number) => {
+                                            const ml: Record<string, { label: string; color: string }> = { CASH: { label: 'كاش', color: '#16a34a' }, CARD: { label: 'بطاقة', color: '#3b82f6' }, TRANSFER: { label: 'تحويل', color: '#8b5cf6' }, INSTAPAY: { label: 'انستاباي', color: '#ec4899' }, FAWRY: { label: 'فوري', color: '#f97316' }, WALLET: { label: 'محفظة', color: '#14b8a6' } };
+                                            const m = ml[pm.method] || { label: pm.method, color: '#6b7280' };
+                                            return (
+                                                <div key={i} style={{ background: `${m.color}10`, border: `1px solid ${m.color}30`, borderRadius: '12px', padding: '14px 20px', minWidth: '130px' }}>
+                                                    <div style={{ fontWeight: '600', color: m.color, marginBottom: '4px' }}>{m.label}</div>
+                                                    <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>{Number(pm.total).toFixed(2)} ج.م</div>
+                                                    <div style={{ fontSize: '12px', color: '#6b7280' }}>{pm.count} عملية</div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {suppliersReport && (
+                                <div style={{ background: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                                        <Banknote size={18} color="#8b5cf6" />
+                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>ذمم الموردين</h3>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+                                        {[
+                                            { label: 'إجمالي الفواتير', value: Number(suppliersReport.totalInvoiced).toFixed(2) + ' ج.م', color: '#3b82f6' },
+                                            { label: 'المدفوع للموردين', value: Number(suppliersReport.totalPaid).toFixed(2) + ' ج.م', color: '#10b981' },
+                                            { label: 'الرصيد المستحق', value: Number(suppliersReport.totalBalance).toFixed(2) + ' ج.م', color: '#dc2626' },
+                                            { label: 'موردون نشطون', value: suppliersReport.activeSuppliers + ' / ' + suppliersReport.totalSuppliers, color: '#f59e0b' },
+                                        ].map((item, i) => (
+                                            <div key={i} style={{ background: `${item.color}10`, borderRadius: '10px', padding: '14px', border: `1px solid ${item.color}25` }}>
+                                                <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>{item.label}</div>
+                                                <div style={{ fontSize: '18px', fontWeight: '700', color: item.color }}>{item.value}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             )}
 
@@ -1827,7 +1990,7 @@ export default function Reports() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
                     <StatCard
                         title="قيمة المخزون"
-                        value={`${metrics.inventory.totalStockValue.toFixed(2)} ر.س`}
+                        value={`${metrics.inventory.totalStockValue.toFixed(2)} ج.م`}
                         icon={Package}
                         color="#6366f1"
                     />

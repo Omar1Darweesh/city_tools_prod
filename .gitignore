@@ -19,6 +19,9 @@ pos-client/.env
 backoffice/.env
 SERVER_IP.txt
 
+# Nested repo - managed separately
+magd_store/
+
 # Activation files
 ACTIVATION.lock
 .activation_record

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Clock, Edit, Trash, Plus, Search, Filter, TrendingUp } from 'lucide-react';
+import { Clock, Edit, Trash, Plus, Search, Filter, TrendingUp, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import ProductForm from './ProductForm';
 import ProductAuditHistory from './ProductAuditHistory';
 import ProductTransactions from './ProductTransactions';
@@ -154,6 +155,72 @@ export default function Products() {
 
     const hasActiveFilters = searchTerm || selectedCategory || selectedSubcategory || selectedItemType || stockFilter;
 
+    const exportToExcel = async () => {
+        try {
+            const params: any = { take: 10000 };
+            if (searchTerm) params.search = searchTerm;
+            if (selectedCategory) params.categoryId = selectedCategory;
+            if (selectedSubcategory) params.subcategoryId = selectedSubcategory;
+            if (selectedItemType) params.itemTypeId = selectedItemType;
+            if (stockFilter) params.stockStatus = stockFilter;
+            if (!showInactive) params.active = true;
+
+            const response = await apiClient.get('/products', { params });
+            const allProducts = response.data.data || response.data || [];
+
+            const rows = allProducts.map((p: any) => {
+                const stock = p.stock || 0;
+                let stockStatus = 'جيد';
+                if (stock <= 0) stockStatus = 'نافذ';
+                else if (stock <= (p.minQty || 5)) stockStatus = 'منخفض';
+                else if (p.maxQty > 0 && stock >= p.maxQty) stockStatus = 'زائد';
+
+                const category =
+                    p.category?.nameAr || p.category?.name ||
+                    p.itemType?.subcategory?.category?.nameAr || p.itemType?.subcategory?.category?.name || '';
+                const subcategory =
+                    p.itemType?.subcategory?.nameAr || p.itemType?.subcategory?.name || '';
+                const itemType =
+                    p.itemType?.nameAr || p.itemType?.name || '';
+
+                return {
+                    'الكود': p.code || '',
+                    'الاسم العربي': p.nameAr || '',
+                    'الاسم الانجليزي': p.nameEn || '',
+                    'الباركود': p.barcode || '',
+                    'الماركة': p.brand || '',
+                    'الوحدة': p.unit || '',
+                    'التصنيف': category,
+                    'التصنيف الفرعي': subcategory,
+                    'نوع المنتج': itemType,
+                    'سعر التجزئة': Number(p.priceRetail || 0),
+                    'سعر الجملة': Number(p.priceWholesale || 0),
+                    'التكلفة': Number(p.cost || 0),
+                    'متوسط التكلفة': Number(p.costAvg || 0),
+                    'الكمية في المخزن': stock,
+                    'الحد الأدنى': p.minQty || 0,
+                    'الحد الأقصى': p.maxQty || 0,
+                    'حالة المخزون': stockStatus,
+                    'الحالة': p.active ? 'نشط' : 'غير نشط',
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws['!cols'] = [
+                { wch: 12 }, { wch: 30 }, { wch: 25 }, { wch: 16 }, { wch: 14 }, { wch: 8 },
+                { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+                { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 10 },
+            ];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'المنتجات');
+            const date = new Date().toISOString().slice(0, 10);
+            XLSX.writeFile(wb, `products-${date}.xlsx`);
+        } catch (err) {
+            console.error('Export failed:', err);
+            alert('فشل تصدير البيانات');
+        }
+    };
+
     return (
         <div style={{ padding: '2rem' }}>
             {/* Header */}
@@ -166,6 +233,27 @@ export default function Products() {
                 <h1 style={{ margin: 0, fontSize: '1.875rem', fontWeight: 'bold' }}>
                     المنتجات
                 </h1>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                    onClick={exportToExcel}
+                    style={{
+                        padding: '0.75rem 1.5rem',
+                        background: '#059669',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        fontSize: '1rem',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#047857'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = '#059669'}
+                >
+                    <Download size={20} />
+                    تصدير Excel
+                </button>
                 <button
                     onClick={() => {
                         setEditingProduct(null);
@@ -187,6 +275,7 @@ export default function Products() {
                     <Plus size={20} />
                     إضافة منتج
                 </button>
+                </div>
             </div>
 
             {/* Enhanced Filters */}
@@ -615,12 +704,12 @@ export default function Products() {
                                             </td>
                                             <td style={{ padding: '1rem', textAlign: 'center' }}>
                                                 <div style={{ fontWeight: '600', color: '#059669' }}>
-                                                    {Number(product.priceRetail).toFixed(2)} ر.س
+                                                    {Number(product.priceRetail).toFixed(2)} ج.م
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1rem', textAlign: 'center' }}>
                                                 <div style={{ fontWeight: '600', color: '#111827' }}>
-                                                    {Number(product.costAvg || product.cost || 0).toFixed(2)} ر.س
+                                                    {Number(product.costAvg || product.cost || 0).toFixed(2)} ج.م
                                                 </div>
                                                 <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.25rem' }}>
                                                     آخر شراء: {Number(product.cost || 0).toFixed(2)}

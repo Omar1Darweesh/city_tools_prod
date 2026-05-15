@@ -4,7 +4,7 @@ import apiClient from '../api/client';
 import {
     DollarSign, Package, ShoppingCart, TrendingUp, ArrowUpRight, ArrowDownRight,
     Clock, AlertTriangle, Plus, Truck, BarChart3, Users, ShoppingBag,
-    Activity, TrendingDown, Target
+    Activity, TrendingDown, Target, Wallet, Receipt, CreditCard
 } from 'lucide-react';
 
 interface DashboardData {
@@ -30,9 +30,28 @@ interface DashboardData {
     totalCustomers: number;
 }
 
+interface ExpensesStats {
+    totalExpenses: number;
+    todayExpenses: number;
+    monthExpenses: number;
+    recurringCount: number;
+    byCategory: Array<{ categoryName: string; categoryNameAr: string; color: string; total: number; count: number }>;
+}
+
+interface SuppliersStats {
+    totalSuppliers: number;
+    activeSuppliers: number;
+    totalBalance: number;
+    totalPaid: number;
+    totalInvoiced: number;
+    suppliersWithBalance: number;
+}
+
 export default function Dashboard() {
     const navigate = useNavigate();
     const [data, setData] = useState<DashboardData | null>(null);
+    const [expensesStats, setExpensesStats] = useState<ExpensesStats | null>(null);
+    const [suppliersStats, setSuppliersStats] = useState<SuppliersStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -48,22 +67,19 @@ export default function Dashboard() {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
             const branchId = user.branchId || 1;
 
-            const response = await apiClient.get('/reports/dashboard-summary', {
-                params: { branchId }
-            });
+            const [dashRes, expRes, supRes] = await Promise.allSettled([
+                apiClient.get('/reports/dashboard-summary', { params: { branchId } }),
+                apiClient.get('/expenses/stats'),
+                apiClient.get('/purchasing/suppliers/stats'),
+            ]);
 
-            setData(response.data);
+            if (dashRes.status === 'fulfilled') setData(dashRes.value.data);
+            else setData({ today: { sales: 0, orders: 0, profit: 0, avgOrderValue: 0 }, yesterday: { sales: 0, orders: 0 }, inventory: { totalProducts: 0, lowStock: 0, outOfStock: 0, stockValue: 0 }, recentSales: [], topProductsToday: [], lowStockProducts: [], totalCustomers: 0 });
+
+            if (expRes.status === 'fulfilled') setExpensesStats(expRes.value.data);
+            if (supRes.status === 'fulfilled') setSuppliersStats(supRes.value.data);
         } catch (error) {
             console.error('Error fetching dashboard:', error);
-            setData({
-                today: { sales: 0, orders: 0, profit: 0, avgOrderValue: 0 },
-                yesterday: { sales: 0, orders: 0 },
-                inventory: { totalProducts: 0, lowStock: 0, outOfStock: 0, stockValue: 0 },
-                recentSales: [],
-                topProductsToday: [],
-                lowStockProducts: [],
-                totalCustomers: 0
-            });
         } finally {
             setLoading(false);
         }
@@ -278,7 +294,7 @@ export default function Dashboard() {
                     <KPICard
                         icon={DollarSign}
                         title="مبيعات اليوم"
-                        value={`${data.today.sales.toFixed(2)} ر.س`}
+                        value={`${data.today.sales.toFixed(2)} ج.م`}
                         subtitle={`${data.today.orders} فاتورة`}
                         color="#10b981"
                         change={salesChange}
@@ -286,7 +302,7 @@ export default function Dashboard() {
                     <KPICard
                         icon={TrendingUp}
                         title="الربح اليوم"
-                        value={`${data.today.profit.toFixed(2)} ر.س`}
+                        value={`${data.today.profit.toFixed(2)} ج.م`}
                         subtitle="صافي الربح"
                         color="#6366f1"
                         change={15.3}
@@ -294,7 +310,7 @@ export default function Dashboard() {
                     <KPICard
                         icon={Target}
                         title="متوسط الفاتورة"
-                        value={`${data.today.avgOrderValue.toFixed(2)} ر.س`}
+                        value={`${data.today.avgOrderValue.toFixed(2)} ج.م`}
                         subtitle="لكل عملية بيع"
                         color="#8b5cf6"
                     />
@@ -384,6 +400,72 @@ export default function Dashboard() {
             </div>*/}
 
             {/* Activity Feed */}
+            {/* Financial Summary Section */}
+            <div style={{ marginBottom: '32px' }}>
+                <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a', marginBottom: '16px' }}>
+                    💰 الملخص المالي
+                </h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+                    <KPICard
+                        icon={Wallet}
+                        title="مصروفات اليوم"
+                        value={expensesStats ? `${Number(expensesStats.todayExpenses).toFixed(2)} ج.م` : '...'}
+                        subtitle={`${expensesStats?.byCategory?.length || 0} تصنيف`}
+                        color="#dc2626"
+                    />
+                    <KPICard
+                        icon={Receipt}
+                        title="مصروفات الشهر"
+                        value={expensesStats ? `${Number(expensesStats.monthExpenses).toFixed(2)} ج.م` : '...'}
+                        subtitle="مصروفات تشغيلية"
+                        color="#f97316"
+                    />
+                    <KPICard
+                        icon={TrendingDown}
+                        title="صافي الربح بعد المصروفات"
+                        value={data && expensesStats
+                            ? `${(data.today.profit - Number(expensesStats.todayExpenses)).toFixed(2)} ج.م`
+                            : '...'}
+                        subtitle="الربح الفعلي اليوم"
+                        color={(data && expensesStats && (data.today.profit - Number(expensesStats.todayExpenses)) >= 0) ? '#10b981' : '#dc2626'}
+                    />
+                    <KPICard
+                        icon={CreditCard}
+                        title="ذمم الموردين"
+                        value={suppliersStats ? `${Number(suppliersStats.totalBalance).toFixed(2)} ج.م` : '...'}
+                        subtitle={suppliersStats ? `${suppliersStats.suppliersWithBalance} مورد له رصيد` : ''}
+                        color="#8b5cf6"
+                    />
+                </div>
+                {/* Expenses by Category mini chart */}
+                {expensesStats && expensesStats.byCategory && expensesStats.byCategory.length > 0 && (
+                    <div style={{
+                        marginTop: '16px', background: 'white', borderRadius: '16px', padding: '20px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0'
+                    }}>
+                        <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Wallet size={18} color="#dc2626" />
+                            توزيع المصروفات الإجمالية حسب التصنيف
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                            {expensesStats.byCategory.map((cat, i) => (
+                                <div key={i} style={{
+                                    background: `${cat.color}15`, border: `1px solid ${cat.color}30`,
+                                    borderRadius: '10px', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px'
+                                }}>
+                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: cat.color, flexShrink: 0 }} />
+                                    <div>
+                                        <div style={{ fontWeight: '600', color: '#374151', fontSize: '13px' }}>{cat.categoryNameAr || cat.categoryName}</div>
+                                        <div style={{ fontWeight: '700', color: cat.color, fontSize: '15px' }}>{Number(cat.total).toFixed(2)} ج.م</div>
+                                        <div style={{ fontSize: '11px', color: '#6b7280' }}>{cat.count} مصروف</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
                 {/* Recent Sales */}
                 <div style={{
@@ -407,7 +489,7 @@ export default function Dashboard() {
                             }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                     <span style={{ fontWeight: '700', color: '#6366f1', fontSize: '14px' }}>#{sale.invoiceNo}</span>
-                                    <span style={{ fontWeight: '700', color: '#10b981', fontSize: '15px' }}>{sale.total} ر.س</span>
+                                    <span style={{ fontWeight: '700', color: '#10b981', fontSize: '15px' }}>{sale.total} ج.م</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -465,7 +547,7 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                                 <div style={{ fontWeight: '700', color: '#10b981', fontSize: '15px' }}>
-                                    {product.revenue.toFixed(2)} ر.س
+                                    {product.revenue.toFixed(2)} ج.م
                                 </div>
                             </div>
                         )) : (

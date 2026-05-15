@@ -34,15 +34,18 @@ model User {
   active         Boolean         @default(true)
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
-  goodsReceipts  GoodsReceipt[]
-  payments       Payment[]
-  priceHistory   PriceHistory[]
-  productAudits  ProductAudit[]
-  salesInvoices  SalesInvoice[]
-  salesReturns   SalesReturn[]
-  stockMovements StockMovement[]
-  roles          UserRole[]
-  branch         Branch          @relation(fields: [branchId], references: [id])
+  goodsReceipts    GoodsReceipt[]
+  payments         Payment[]
+  priceHistory     PriceHistory[]
+  productAudits    ProductAudit[]
+  salesInvoices    SalesInvoice[]
+  salesReturns     SalesReturn[]
+  stockMovements   StockMovement[]
+  roles            UserRole[]
+  supplierPayments SupplierPayment[]
+  supplierAudits   SupplierAudit[]
+  expenses         Expense[]
+  branch           Branch          @relation(fields: [branchId], references: [id])
 
   @@map("users")
 }
@@ -384,20 +387,56 @@ model SalesReturnLine {
 }
 
 model Supplier {
-  id             Int             @id @default(autoincrement())
-  name           String          @db.VarChar(255)
-  contact        String?         @db.VarChar(255)
-  phone          String?         @db.VarChar(50)
-  email          String?         @db.VarChar(255)
+  id             Int               @id @default(autoincrement())
+  name           String            @db.VarChar(255)
+  contact        String?           @db.VarChar(255)
+  phone          String?           @db.VarChar(50)
+  email          String?           @db.VarChar(255)
   address        String?
-  paymentTerms   String?         @map("payment_terms")
-  active         Boolean         @default(true)
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
+  paymentTerms   String?           @map("payment_terms")
+  active         Boolean           @default(true)
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
   goodsReceipts  GoodsReceipt[]
   purchaseOrders PurchaseOrder[]
+  payments       SupplierPayment[]
+  auditLogs      SupplierAudit[]
 
   @@map("suppliers")
+}
+
+model SupplierPayment {
+  id          Int            @id @default(autoincrement())
+  supplierId  Int            @map("supplier_id")
+  grnId       Int?           @map("grn_id")
+  amount      Decimal        @db.Decimal(10, 2)
+  paymentDate DateTime       @default(now()) @map("payment_date")
+  method      PaymentMethod? @default(CASH)
+  notes       String?
+  createdBy   Int            @map("created_by")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  supplier    Supplier       @relation(fields: [supplierId], references: [id])
+  grn         GoodsReceipt?  @relation(fields: [grnId], references: [id])
+  user        User           @relation(fields: [createdBy], references: [id])
+
+  @@index([supplierId])
+  @@index([grnId])
+  @@map("supplier_payments")
+}
+
+model SupplierAudit {
+  id         Int         @id @default(autoincrement())
+  supplierId Int         @map("supplier_id")
+  action     AuditAction
+  oldData    Json?       @map("old_data")
+  newData    Json?       @map("new_data")
+  userId     Int         @map("user_id")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  supplier   Supplier    @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id])
+
+  @@index([supplierId])
+  @@map("supplier_audits")
 }
 
 model PurchaseOrder {
@@ -445,6 +484,7 @@ model GoodsReceipt {
   createdAt   DateTime           @default(now()) @map("created_at")
   updatedAt   DateTime           @updatedAt @map("updated_at")
   lines       GoodsReceiptLine[]
+  payments    SupplierPayment[]
   branch      Branch             @relation(fields: [branchId], references: [id])
   user        User               @relation(fields: [createdBy], references: [id])
   supplier    Supplier           @relation(fields: [supplierId], references: [id])
@@ -548,4 +588,45 @@ enum PaymentTerm {
   DAYS_15
   DAYS_30
   DAYS_60
+  DAYS_CUSTOM
+}
+
+// ============= Expenses Module =============
+model ExpenseCategory {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  nameAr      String?   @map("name_ar") @db.VarChar(100)
+  description String?
+  color       String?   @db.VarChar(20)
+  icon        String?   @db.VarChar(50)
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  expenses    Expense[]
+
+  @@map("expense_categories")
+}
+
+model Expense {
+  id            Int             @id @default(autoincrement())
+  expenseNo     String          @unique @map("expense_no") @db.VarChar(50)
+  categoryId    Int             @map("category_id")
+  amount        Decimal         @db.Decimal(12, 2)
+  description   String?
+  expenseDate   DateTime        @map("expense_date")
+  paymentMethod PaymentMethod   @default(CASH) @map("payment_method")
+  reference     String?         @db.VarChar(100)
+  notes         String?
+  isRecurring   Boolean         @default(false) @map("is_recurring")
+  recurringDay  Int?            @map("recurring_day")
+  createdBy     Int             @map("created_by")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  category      ExpenseCategory @relation(fields: [categoryId], references: [id])
+  user          User            @relation(fields: [createdBy], references: [id])
+
+  @@index([categoryId])
+  @@index([expenseDate])
+  @@index([createdBy])
+  @@map("expenses")
 }

@@ -20,6 +20,7 @@ import ProductTransactions from './pages/ProductTransactions';
 import CustomerPayments from './pages/CustomerPayments';
 import Roles from './pages/Roles';
 import CostVerification from './pages/CostVerification';
+import Expenses from './pages/Expenses';
 
 
 export default function App() {
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="/settings/platforms" element={<ProtectedRoute><PlatformSettings /></ProtectedRoute>} />
           <Route path="/customer-payments" element={<CustomerPayments />} />
           <Route path="/roles" element={<Roles />} />
+          <Route path="expenses" element={<Expenses />} />
 
         </Route>
       </Routes>

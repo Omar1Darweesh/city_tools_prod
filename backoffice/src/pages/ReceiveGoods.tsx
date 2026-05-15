@@ -69,7 +69,7 @@ export default function ReceiveGoods() {
     const addProduct = (product: any) => {
         // Check if product already exists in lines
         const existingIndex = lines.findIndex(l => l.productId === product.id);
-        
+
         if (existingIndex !== -1) {
             // Product exists, increase quantity
             const newLines = [...lines];
@@ -158,8 +158,8 @@ export default function ReceiveGoods() {
     return (
         <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
             {/* ✅ Enhanced Header */}
-            <div style={{ 
-                marginBottom: '32px', 
+            <div style={{
+                marginBottom: '32px',
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 padding: '24px',
                 borderRadius: '16px',
@@ -251,7 +251,7 @@ export default function ReceiveGoods() {
                                 }}
                                 value={taxRate}
                                 onChange={e => setTaxRate(parseFloat(e.target.value) || 0)}
-                                min="0" 
+                                min="0"
                                 max="100"
                                 step="0.1"
                                 onFocus={(e) => e.target.style.borderColor = '#667eea'}
@@ -347,12 +347,12 @@ export default function ReceiveGoods() {
                                     </thead>
                                     <tbody>
                                         {lines.map((line, index) => (
-                                            <tr key={index} style={{ 
+                                            <tr key={index} style={{
                                                 background: index % 2 === 0 ? 'white' : '#fafbfc',
                                                 transition: 'all 0.2s'
                                             }}
-                                            onMouseEnter={(e) => e.currentTarget.style.background = '#f5f3ff'}
-                                            onMouseLeave={(e) => e.currentTarget.style.background = index % 2 === 0 ? 'white' : '#fafbfc'}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = '#f5f3ff'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = index % 2 === 0 ? 'white' : '#fafbfc'}
                                             >
                                                 <td style={{ padding: '16px', borderBottom: '1px solid #e2e8f0' }}>
                                                     <div>
@@ -378,7 +378,7 @@ export default function ReceiveGoods() {
                                                 </td>
                                                 <td style={{ padding: '16px', borderBottom: '1px solid #e2e8f0' }}>
                                                     <input
-                                                        type="number" 
+                                                        type="number"
                                                         style={{
                                                             width: '100%',
                                                             padding: '10px',
@@ -398,7 +398,7 @@ export default function ReceiveGoods() {
                                                 </td>
                                                 <td style={{ padding: '16px', borderBottom: '1px solid #e2e8f0' }}>
                                                     <input
-                                                        type="number" 
+                                                        type="number"
                                                         style={{
                                                             width: '100%',
                                                             padding: '10px',
@@ -418,16 +418,16 @@ export default function ReceiveGoods() {
                                                     />
                                                 </td>
                                                 <td style={{ padding: '16px', textAlign: 'center', fontWeight: '700', fontSize: '16px', color: '#10b981', borderBottom: '1px solid #e2e8f0' }}>
-                                                    {(Number(line.qty || 0) * Number(line.cost || 0)).toFixed(2)} ر.س
+                                                    {(Number(line.qty || 0) * Number(line.cost || 0)).toFixed(2)} ج.م
                                                 </td>
                                                 <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={() => removeLine(index)} 
-                                                        style={{ 
-                                                            background: '#fee2e2', 
-                                                            border: 'none', 
-                                                            cursor: 'pointer', 
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeLine(index)}
+                                                        style={{
+                                                            background: '#fee2e2',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
                                                             color: '#dc2626',
                                                             padding: '8px',
                                                             borderRadius: '8px',
@@ -451,7 +451,7 @@ export default function ReceiveGoods() {
                     {/* ✅ Enhanced Totals Section */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '32px', paddingTop: '24px', borderTop: '2px solid #e2e8f0' }}>
                         <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-                            <div style={{ 
+                            <div style={{
                                 padding: '16px 24px',
                                 background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
                                 borderRadius: '12px',
@@ -460,7 +460,7 @@ export default function ReceiveGoods() {
                                 <div style={{ fontSize: '12px', color: '#0369a1', marginBottom: '4px', fontWeight: '600' }}>عدد المنتجات</div>
                                 <div style={{ fontSize: '24px', fontWeight: '700', color: '#0c4a6e' }}>{lines.length}</div>
                             </div>
-                            <div style={{ 
+                            <div style={{
                                 padding: '16px 24px',
                                 background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
                                 borderRadius: '12px',
@@ -473,7 +473,7 @@ export default function ReceiveGoods() {
                             </div>
                         </div>
 
-                        <div style={{ 
+                        <div style={{
                             minWidth: '350px',
                             background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
                             padding: '24px',
@@ -483,30 +483,30 @@ export default function ReceiveGoods() {
                         }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '15px' }}>
                                 <span style={{ color: '#64748b', fontWeight: '500' }}>الإجمالي الفرعي:</span>
-                                <span style={{ fontWeight: '700', color: '#334155' }}>{subtotal.toFixed(2)} ر.س</span>
+                                <span style={{ fontWeight: '700', color: '#334155' }}>{subtotal.toFixed(2)} ج.م</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', color: '#64748b', fontSize: '14px' }}>
                                 <span style={{ fontWeight: '500' }}>الضريبة ({taxRate}%):</span>
-                                <span style={{ fontWeight: '600' }}>{taxAmount.toFixed(2)} ر.س</span>
+                                <span style={{ fontWeight: '600' }}>{taxAmount.toFixed(2)} ج.م</span>
                             </div>
-                            <div style={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                fontSize: '20px', 
-                                fontWeight: '700', 
-                                borderTop: '2px solid #cbd5e1', 
-                                paddingTop: '16px', 
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                fontSize: '20px',
+                                fontWeight: '700',
+                                borderTop: '2px solid #cbd5e1',
+                                paddingTop: '16px',
                                 marginTop: '12px'
                             }}>
                                 <span style={{ color: '#1e293b' }}>الإجمالي النهائي:</span>
-                                <span style={{ 
+                                <span style={{
                                     color: 'white',
                                     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                     padding: '8px 20px',
                                     borderRadius: '10px',
                                     boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
                                 }}>
-                                    {total.toFixed(2)} ر.س
+                                    {total.toFixed(2)} ج.م
                                 </span>
                             </div>
                         </div>
@@ -514,7 +514,7 @@ export default function ReceiveGoods() {
 
                     {/* ✅ Enhanced Submit Button */}
                     <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'center', gap: '16px' }}>
-                        <button 
+                        <button
                             type="button"
                             onClick={() => {
                                 if (confirm('هل تريد إلغاء العملية وحذف جميع البيانات؟')) {
@@ -539,13 +539,13 @@ export default function ReceiveGoods() {
                         >
                             إلغاء
                         </button>
-                        <button 
-                            type="submit" 
+                        <button
+                            type="submit"
                             disabled={loading || lines.length === 0 || !supplierId}
                             style={{
                                 padding: '14px 48px',
-                                background: (loading || lines.length === 0 || !supplierId) 
-                                    ? '#cbd5e1' 
+                                background: (loading || lines.length === 0 || !supplierId)
+                                    ? '#cbd5e1'
                                     : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                 color: 'white',
                                 border: 'none',
@@ -556,8 +556,8 @@ export default function ReceiveGoods() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '12px',
-                                boxShadow: (loading || lines.length === 0 || !supplierId) 
-                                    ? 'none' 
+                                boxShadow: (loading || lines.length === 0 || !supplierId)
+                                    ? 'none'
                                     : '0 4px 12px rgba(16, 185, 129, 0.3)',
                                 transition: 'all 0.2s'
                             }}
@@ -594,7 +594,7 @@ export default function ReceiveGoods() {
                     backdropFilter: 'blur(8px)',
                     animation: 'fadeIn 0.2s ease'
                 }}
-                onClick={() => setShowSearchModal(false)}
+                    onClick={() => setShowSearchModal(false)}
                 >
                     <div style={{
                         backgroundColor: '#fff',
@@ -610,10 +610,10 @@ export default function ReceiveGoods() {
                         flexDirection: 'column',
                         overflow: 'hidden'
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header */}
-                        <div style={{ 
+                        <div style={{
                             padding: '24px 32px',
                             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                             color: 'white',
@@ -633,10 +633,10 @@ export default function ReceiveGoods() {
                             </div>
                             <button
                                 onClick={() => setShowSearchModal(false)}
-                                style={{ 
-                                    background: 'rgba(255,255,255,0.2)', 
-                                    border: 'none', 
-                                    cursor: 'pointer', 
+                                style={{
+                                    background: 'rgba(255,255,255,0.2)',
+                                    border: 'none',
+                                    cursor: 'pointer',
                                     color: 'white',
                                     padding: '8px',
                                     borderRadius: '8px',
@@ -655,11 +655,11 @@ export default function ReceiveGoods() {
                         {/* Search Input */}
                         <div style={{ padding: '20px 32px', borderBottom: '1px solid #e2e8f0' }}>
                             <div style={{ position: 'relative' }}>
-                                <Search size={20} style={{ 
-                                    position: 'absolute', 
-                                    right: '20px', 
-                                    top: '50%', 
-                                    transform: 'translateY(-50%)', 
+                                <Search size={20} style={{
+                                    position: 'absolute',
+                                    right: '20px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
                                     color: '#667eea',
                                     zIndex: 1
                                 }} />
@@ -668,7 +668,7 @@ export default function ReceiveGoods() {
                                     autoFocus
                                     type="text"
                                     placeholder="ابحث باسم المنتج، الباركود، أو الكود..."
-                                    style={{ 
+                                    style={{
                                         width: '100%',
                                         paddingRight: '52px',
                                         paddingLeft: '20px',
@@ -698,7 +698,7 @@ export default function ReceiveGoods() {
                                 />
                             </div>
                             {searchTerm && (
-                                <div style={{ 
+                                <div style={{
                                     marginTop: '12px',
                                     fontSize: '13px',
                                     color: '#64748b',
@@ -713,7 +713,7 @@ export default function ReceiveGoods() {
                         </div>
 
                         {/* Results Container */}
-                        <div style={{ 
+                        <div style={{
                             flex: 1,
                             overflowY: 'auto',
                             padding: '16px 0'
@@ -748,8 +748,8 @@ export default function ReceiveGoods() {
                                             }}
                                         >
                                             <div style={{ flex: 1 }}>
-                                                <div style={{ 
-                                                    fontWeight: '700', 
+                                                <div style={{
+                                                    fontWeight: '700',
                                                     color: '#1e293b',
                                                     fontSize: '16px',
                                                     marginBottom: '6px',
@@ -771,12 +771,12 @@ export default function ReceiveGoods() {
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div style={{ 
-                                                    fontSize: '13px', 
+                                                <div style={{
+                                                    fontSize: '13px',
                                                     color: '#64748b',
                                                     marginBottom: '8px'
                                                 }}>
-                                                    📦 {product.barcode || 'لا يوجد باركود'} 
+                                                    📦 {product.barcode || 'لا يوجد باركود'}
                                                     {product.code && <span> | 🏷️ {product.code}</span>}
                                                 </div>
                                                 <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
@@ -791,31 +791,31 @@ export default function ReceiveGoods() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div style={{ 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
                                                 gap: '20px',
                                                 marginRight: '24px'
                                             }}>
                                                 <div style={{ textAlign: 'left' }}>
-                                                    <div style={{ 
-                                                        fontSize: '11px', 
+                                                    <div style={{
+                                                        fontSize: '11px',
                                                         color: '#64748b',
                                                         marginBottom: '4px',
                                                         fontWeight: '600'
                                                     }}>
                                                         التكلفة (آخر)
                                                     </div>
-                                                    <div style={{ 
-                                                        fontWeight: '700', 
+                                                    <div style={{
+                                                        fontWeight: '700',
                                                         color: '#10b981',
                                                         fontSize: '18px'
                                                     }}>
-                                                        {Number(product.costAvg || product.cost || 0).toFixed(2)} ر.س
+                                                        {Number(product.costAvg || product.cost || 0).toFixed(2)} ج.م
                                                     </div>
                                                 </div>
-                                                <div style={{ 
-                                                    backgroundColor: '#667eea', 
+                                                <div style={{
+                                                    backgroundColor: '#667eea',
                                                     color: 'white',
                                                     padding: '10px 20px',
                                                     borderRadius: '10px',
@@ -833,8 +833,8 @@ export default function ReceiveGoods() {
                                     ))}
                                 </div>
                             ) : searchTerm.length >= 1 ? (
-                                <div style={{ 
-                                    textAlign: 'center', 
+                                <div style={{
+                                    textAlign: 'center',
                                     padding: '80px 20px',
                                     color: '#64748b'
                                 }}>
@@ -847,8 +847,8 @@ export default function ReceiveGoods() {
                                     </p>
                                 </div>
                             ) : (
-                                <div style={{ 
-                                    textAlign: 'center', 
+                                <div style={{
+                                    textAlign: 'center',
                                     padding: '80px 20px',
                                     color: '#94a3b8'
                                 }}>
@@ -875,7 +875,7 @@ export default function ReceiveGoods() {
                             alignItems: 'center'
                         }}>
                             <span>💡&#160;&#160;نصيحة: يمكنك البحث بالباركود مباشرة باستخدام ماسح الباركود</span>
-                            <span style={{ 
+                            <span style={{
                                 background: '#e2e8f0',
                                 padding: '4px 8px',
                                 borderRadius: '6px',
