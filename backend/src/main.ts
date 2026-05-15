@@ -93,11 +93,9 @@ async function bootstrap() {
         // Pass false for automatic backup
         const result = await databaseService.createBackup(false);
 
-        if (result.success) {
-          console.log('✅ Scheduled backup completed successfully');
-          console.log(`📁 File: ${result.filename}`);
-          console.log(`📊 Size: ${(result.size / 1024 / 1024).toFixed(2)} MB`);
-        }
+        console.log('✅ Scheduled backup completed successfully');
+        console.log(`📁 File: ${result.filename}`);
+        console.log(`📊 Size: ${(result.size / 1024 / 1024).toFixed(2)} MB`);
       } catch (error) {
         console.error('❌ Scheduled backup failed:', error.message);
       }
