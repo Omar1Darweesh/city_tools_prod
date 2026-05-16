@@ -652,7 +652,7 @@ export default function Products() {
                                         الباركود
                                     </th>
                                     <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', color: '#374151' }}>
-                                        سعر التجزئة
+                                        سعر القطاعي
                                     </th>
                                     <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', color: '#374151' }}>
                                         سعر الجملة
