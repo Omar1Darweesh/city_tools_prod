@@ -22,6 +22,7 @@ import Roles from './pages/Roles';
 import CostVerification from './pages/CostVerification';
 import Expenses from './pages/Expenses';
 import Backup from './pages/Backup';
+import Stock from './pages/Stock';
 
 
 export default function App() {
@@ -45,11 +46,14 @@ export default function App() {
           <Route path="sales/:id" element={<SalesDetail />} />  {/* ✅ ADDED */}
           <Route path="suppliers" element={<Suppliers />} />
           <Route path="receive-goods" element={<ReceiveGoods />} />
+          <Route path="goods-receipts" element={<ReceiveGoods />} />
           <Route path="categories" element={<Categories />} />
           <Route path="users" element={<Users />} />
           <Route path="reports" element={<Reports />} />
           <Route path="customers" element={<Customers />} />
+          <Route path="stock" element={<Stock />} />
           <Route path="stock-adjustments" element={<StockAdjustments />} />
+          <Route path="stock-adjustment" element={<StockAdjustments />} />
           {/* <Route path="transfers" element={<Transfers />} /> */}
           <Route path="returns" element={<Returns />} />
           <Route path="/platform-settings" element={<ProtectedRoute><PlatformSettings /></ProtectedRoute>} />
@@ -58,6 +62,7 @@ export default function App() {
           {/* <Route path="product-transactions" element={<ProductTransactions />} /> */}
           <Route path="/settings/platforms" element={<ProtectedRoute><PlatformSettings /></ProtectedRoute>} />
           <Route path="/customer-payments" element={<CustomerPayments />} />
+          <Route path="customer-accounts" element={<CustomerPayments />} />
           <Route path="/roles" element={<Roles />} />
           <Route path="expenses" element={<Expenses />} />
           <Route path="backup" element={<Backup />} />
