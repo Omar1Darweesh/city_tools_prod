@@ -652,7 +652,10 @@ export default function Products() {
                                         الباركود
                                     </th>
                                     <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', color: '#374151' }}>
-                                        السعر
+                                        سعر التجزئة
+                                    </th>
+                                    <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', color: '#374151' }}>
+                                        سعر الجملة
                                     </th>
                                     <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', color: '#374151' }}>
                                         التكلفة
@@ -705,6 +708,11 @@ export default function Products() {
                                             <td style={{ padding: '1rem', textAlign: 'center' }}>
                                                 <div style={{ fontWeight: '600', color: '#059669' }}>
                                                     {Number(product.priceRetail).toFixed(2)} ج.م
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                                <div style={{ fontWeight: '600', color: '#7c3aed' }}>
+                                                    {Number(product.priceWholesale).toFixed(2)} ج.م
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1rem', textAlign: 'center' }}>
