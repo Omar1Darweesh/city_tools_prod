@@ -6,12 +6,11 @@ import { routing } from "./i18n/routing";
 const handler = createMiddleware(routing);
 
 const proxyPaths = ["/backoffice", "/pos-client", "/backend"];
-const locales = routing.locales as string[];
 
 function matchesProxyPath(pathname: string): boolean {
   // Strip locale prefix if present (e.g. /ar/backoffice -> /backoffice)
   let normalized = pathname;
-  for (const locale of locales) {
+  for (const locale of routing.locales) {
     const prefix = "/" + locale;
     if (pathname === prefix) break; // just the locale, not our path
     if (pathname.startsWith(prefix + "/")) {
