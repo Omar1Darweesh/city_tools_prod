@@ -125,7 +125,11 @@ const buildSupplierQuery = (page: number, filters: Filters, take = PAGE_SIZE) =>
 };
 
 /** Fallback when /with-balance or /stats are missing on older servers */
-const fetchSuppliersList = async (page: number, filters: Filters, take = PAGE_SIZE) => {
+const fetchSuppliersList = async (
+    page: number,
+    filters: Filters,
+    take = PAGE_SIZE,
+): Promise<{ data: SupplierWithBalance[]; total: number }> => {
     const params = buildSupplierQuery(page, filters, take);
     try {
         const { data } = await apiClient.get(`/purchasing/suppliers/with-balance?${params}`);
@@ -316,7 +320,7 @@ export default function Suppliers() {
             const { data: allSuppliers } = await fetchSuppliersList(0, filters, 500);
 
             // Prepare Excel data
-            const exportData = allSuppliers.map((s, i) => ({
+            const exportData = allSuppliers.map((s: SupplierWithBalance, i: number) => ({
                 '#': i + 1,
                 'اسم المورد': s.name,
                 'الشخص المسؤول': s.contact || '',
