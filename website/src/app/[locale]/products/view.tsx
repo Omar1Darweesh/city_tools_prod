@@ -423,11 +423,9 @@ function ProductsContent() {
               icon={<Package className="size-16" />}
               title={t("noResults")}
               description={t("noResultsDesc")}
-            >
-              <button onClick={clearFilters} className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                {locale === "ar" ? "مسح التصفية" : "Clear Filter"}
-              </button>
-            </EmptyState>
+              actionLabel={locale === "ar" ? "مسح التصفية" : "Clear Filter"}
+              onAction={clearFilters}
+            />
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
               {products.map((product) => (
