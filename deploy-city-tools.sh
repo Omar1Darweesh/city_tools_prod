@@ -18,7 +18,7 @@
 #   /pos-client/   → POS
 #   /api           → Backend
 # =============================================================
-set -e
+set -euo pipefail
 
 # ── Isolated config (do not reuse production values) ──────────
 REPO_URL="https://github.com/Omar1Darweesh/city_tools_prod.git"
@@ -49,6 +49,89 @@ PROTECTED_NGINX_SITES=(
   "citytools.lamarpos.cloud"
   "default"
 )
+PROTECTED_PORTS=(3020 8091 5000 80 443)
+NGINX_HASH_SNAPSHOT="/tmp/city-tools-nginx-protect.sha256"
+PM2_SNAPSHOT="/tmp/city-tools-pm2-before.txt"
+
+snapshot_nginx_integrity() {
+    find /etc/nginx/sites-available -type f ! -name "$NGINX_SITE" -print0 2>/dev/null \
+        | sort -z | xargs -0 sha256sum 2>/dev/null > "$NGINX_HASH_SNAPSHOT" || true
+}
+
+verify_nginx_integrity() {
+    local current="/tmp/city-tools-nginx-protect-current.sha256"
+    find /etc/nginx/sites-available -type f ! -name "$NGINX_SITE" -print0 2>/dev/null \
+        | sort -z | xargs -0 sha256sum 2>/dev/null > "$current" || true
+    if [ -f "$NGINX_HASH_SNAPSHOT" ] && [ -f "$current" ]; then
+        if ! diff -q "$NGINX_HASH_SNAPSHOT" "$current" >/dev/null 2>&1; then
+            echo "ERROR: Another nginx config file was modified. Stopping to protect client projects."
+            diff "$NGINX_HASH_SNAPSHOT" "$current" || true
+            exit 1
+        fi
+        echo "OK: All other nginx site configs unchanged."
+    fi
+}
+
+snapshot_pm2_state() {
+    pm2 list 2>/dev/null > "$PM2_SNAPSHOT" || true
+}
+
+verify_pm2_protected() {
+    if pm2 describe "$PROTECTED_PM2" >/dev/null 2>&1; then
+        if pm2 list 2>/dev/null | grep "$PROTECTED_PM2" | grep -q "online"; then
+            echo "OK: Client production PM2 '$PROTECTED_PM2' is still online."
+        else
+            echo "ERROR: '$PROTECTED_PM2' is not online after deploy. Check client apps immediately."
+            exit 1
+        fi
+    else
+        echo "Note: '$PROTECTED_PM2' not in PM2 (may use a different process name)."
+    fi
+    if [ -f "$PM2_SNAPSHOT" ] && [ -f /tmp/city-tools-pm2-after.txt ]; then
+        # Ensure no unrelated PM2 app disappeared (count lines with 'online')
+        local before after
+        before=$(grep -c "online" "$PM2_SNAPSHOT" || echo 0)
+        after=$(grep -c "online" /tmp/city-tools-pm2-after.txt || echo 0)
+        if [ "$after" -lt "$before" ]; then
+            echo "ERROR: PM2 online process count dropped ($before -> $after). Client apps may be affected."
+            exit 1
+        fi
+        echo "OK: PM2 online process count preserved ($after apps)."
+    fi
+}
+
+check_disk_space() {
+    local avail_kb
+    avail_kb=$(df --output=avail / | tail -1 | tr -d ' ')
+    local min_kb=3145728  # 3 GB
+    echo "Disk free: $(( avail_kb / 1024 / 1024 )) GB"
+    if [ "$avail_kb" -lt "$min_kb" ]; then
+        echo "ERROR: Less than 3 GB free. npm builds can fill disk and break OTHER client projects."
+        echo "Free space first (server is ~88% full), then re-run."
+        exit 1
+    fi
+}
+
+check_protected_ports() {
+    local port
+    for port in 3020 8091; do
+        if ss -tlnp 2>/dev/null | grep -q ":${port} "; then
+            echo "Protected client port $port is in use (expected for live projects) — will NOT use it."
+        fi
+    done
+    if [ "$BACKEND_PORT" = "3020" ] || [ "$WEBSITE_PORT" = "8091" ]; then
+        echo "ERROR: city-tools ports must not overlap client ports 3020/8091."
+        exit 1
+    fi
+}
+
+verify_protected_database() {
+    if sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$PROTECTED_DB'" 2>/dev/null | grep -q 1; then
+        echo "OK: Client database '$PROTECTED_DB' still exists."
+    else
+        echo "WARNING: Could not verify '$PROTECTED_DB' (may be named differently)."
+    fi
+}
 
 echo ""
 echo "============================================"
@@ -77,6 +160,17 @@ if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
+echo ""
+echo "Type 'city-tools' to confirm you accept isolated deploy (other client projects stay live):"
+read -r TYPED
+if [ "$TYPED" != "city-tools" ]; then
+    echo "Aborted — confirmation did not match."
+    exit 0
+fi
+
+snapshot_nginx_integrity
+snapshot_pm2_state
+
 # ── Pre-flight: port availability ─────────────────────────────
 check_port_free() {
     local port=$1
@@ -99,12 +193,22 @@ check_port_free() {
 
 echo ""
 echo "--- Pre-flight checks ---"
+check_disk_space
+check_protected_ports
 check_port_free "$BACKEND_PORT" "city-tools API"
 check_port_free "$WEBSITE_PORT" "city-tools website"
+verify_protected_database
 
 if [ -d "$PROTECTED_APP_DIR" ]; then
-    echo "Old production folder exists at $PROTECTED_APP_DIR — will NOT be modified."
+    echo "Client folder $PROTECTED_APP_DIR exists — will NOT be modified."
 fi
+
+echo ""
+echo "Other nginx sites on this server (will NOT be edited):"
+ls -1 /etc/nginx/sites-enabled/ 2>/dev/null | grep -v "^${NGINX_SITE}$" || echo "  (none listed)"
+echo ""
+echo "Current PM2 processes (client apps must stay running):"
+pm2 list 2>/dev/null || echo "  PM2 not running yet"
 
 # ── Prompts ───────────────────────────────────────────────────
 read -sp "Enter NEW PostgreSQL password for '$DB_USER' (not production DB): " DB_PASS
@@ -127,20 +231,31 @@ API_URL="https://${DOMAIN}/api"
 STORE_PUBLIC_URL="https://${DOMAIN}"
 
 echo ""
-echo "--- Step 1: System packages (shared install only, no config changes) ---"
+echo "--- Step 1: System packages (install missing only — no upgrades) ---"
 
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
+
+NEED_APT=false
+command -v node &>/dev/null || NEED_APT=true
+command -v psql &>/dev/null || NEED_APT=true
+command -v pm2 &>/dev/null || NEED_APT=true
+command -v nginx &>/dev/null || NEED_APT=true
+
+if [ "$NEED_APT" = true ]; then
+    apt-get update -qq
+else
+    echo "Node, PostgreSQL, PM2, nginx already present — skipping apt-get update."
+fi
 
 if ! command -v node &>/dev/null; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get install -y nodejs
+    apt-get install -y --no-upgrade nodejs 2>/dev/null || apt-get install -y nodejs
 else
     echo "Node.js $(node -v) already installed."
 fi
 
 if ! command -v psql &>/dev/null; then
-    apt-get install -y postgresql postgresql-contrib
+    apt-get install -y --no-upgrade postgresql postgresql-contrib 2>/dev/null || apt-get install -y postgresql postgresql-contrib
     systemctl start postgresql
     systemctl enable postgresql
 else
@@ -154,7 +269,7 @@ else
 fi
 
 if ! command -v nginx &>/dev/null; then
-    apt-get install -y nginx
+    apt-get install -y --no-upgrade nginx 2>/dev/null || apt-get install -y nginx
     systemctl start nginx
     systemctl enable nginx
 else
@@ -180,9 +295,13 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$DB_NAME')
 \gexec
 
 GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
+
+-- Safety: never drop or alter client production database
+-- (this block only creates $DB_NAME if missing)
 SQL
 
-echo "Database '$DB_NAME' ready. Production DB '$PROTECTED_DB' was NOT touched."
+verify_protected_database
+echo "Database '$DB_NAME' ready. Client DB '$PROTECTED_DB' was NOT modified."
 
 echo ""
 echo "--- Step 3: Clone / update code at $APP_DIR only ---"
@@ -309,7 +428,9 @@ pm2 delete "$PM2_WEBSITE" 2>/dev/null || true
 pm2 start "$APP_DIR/ecosystem.city-tools.config.js"
 pm2 save
 
-echo "PM2 started. Other PM2 apps (e.g. $PROTECTED_PM2) were NOT touched."
+pm2 list 2>/dev/null > /tmp/city-tools-pm2-after.txt
+verify_pm2_protected
+echo "PM2: only '$PM2_BACKEND' and '$PM2_WEBSITE' were (re)started."
 pm2 list
 
 echo ""
@@ -375,18 +496,29 @@ for protected in "${PROTECTED_NGINX_SITES[@]}"; do
     fi
 done
 
-nginx -t && systemctl reload nginx
-echo "nginx reloaded. Only $NGINX_SITE was written."
+verify_nginx_integrity
+
+if ! nginx -t; then
+    echo "ERROR: nginx test failed. NOT reloading — client sites stay on old config."
+    exit 1
+fi
+systemctl reload nginx
+verify_nginx_integrity
+echo "nginx reloaded safely. Only $NGINX_SITE was written."
 
 echo ""
-echo "--- Step 10: SSL for $DOMAIN only ---"
+echo "--- Step 10: SSL for $DOMAIN only (does not touch other certificates) ---"
 
 if ! command -v certbot &>/dev/null; then
-    apt-get install -y certbot python3-certbot-nginx -qq
+    apt-get install -y --no-upgrade certbot python3-certbot-nginx -qq 2>/dev/null \
+        || apt-get install -y certbot python3-certbot-nginx -qq
 fi
 
-certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect 2>/dev/null \
+certbot --nginx -d "$DOMAIN" --cert-name "$DOMAIN" \
+    --non-interactive --agree-tos --register-unsafely-without-email --redirect 2>/dev/null \
     || echo "Certbot note: run manually if needed: certbot --nginx -d $DOMAIN"
+
+verify_nginx_integrity
 
 echo ""
 echo "--- Step 11: Firewall (add rules only, skip if ufw not used) ---"
@@ -410,6 +542,23 @@ if [[ "$RUN_SEED" =~ ^[Yy]$ ]]; then
 else
     echo "Seed skipped."
 fi
+
+echo ""
+echo "--- Post-deploy: verify client production still responds ---"
+if command -v curl &>/dev/null; then
+    PROD_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://citytools.lamarpos.cloud" || echo "000")
+    TEST_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://$DOMAIN" || echo "000")
+    echo "  citytools.lamarpos.cloud (clients): HTTP $PROD_CODE"
+    echo "  $DOMAIN (test):                    HTTP $TEST_CODE"
+    if [ "$PROD_CODE" = "000" ]; then
+        echo "  WARNING: Could not reach client production URL — check manually."
+    fi
+else
+    echo "  Install curl to auto-check client URLs."
+fi
+
+verify_pm2_protected
+verify_nginx_integrity
 
 echo ""
 echo "============================================"
