@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma.service';
 import { CreateSaleDto } from './dto/sales.dto';
 import {
   MovementType,
+  OrderStatus,
   PaymentStatus,
   Prisma,
   PaymentMethod,
@@ -353,7 +354,8 @@ export class SalesService {
       });
 
       // NEW: Auto-deliver if fully paid and not yet delivered
-      if (newPaymentStatus === PaymentStatus.PAID && !invoice.delivered) {
+      // Skip auto-deliver for online store orders (fulfillment workflow)
+      if (newPaymentStatus === PaymentStatus.PAID && !invoice.delivered && invoice.channel !== 'ONLINE_STORE') {
         // Find stock location
         const stockLocation = await tx.stockLocation.findFirst({
           where: {
@@ -437,12 +439,121 @@ export class SalesService {
         });
       }
 
+      // Release reservation for online orders
+      if (invoice.channel === 'ONLINE_STORE' && invoice.lines.length > 0) {
+        await tx.stockMovement.createMany({
+          data: invoice.lines.map((line) => ({
+            productId: line.productId,
+            stockLocationId: stockLocation.id,
+            qtyChange: line.qty,
+            movementType: MovementType.RESERVED,
+            refTable: 'sales_invoices',
+            refId: invoice.id,
+            createdBy: userId,
+          })),
+        });
+      }
+
       // Mark as delivered
       return tx.salesInvoice.update({
         where: { id: salesInvoiceId },
         data: {
           delivered: true,
           deliveryDate: new Date(),
+          status: OrderStatus.DELIVERED,
+        },
+      });
+    });
+  }
+
+  // ✅ NEW: Update order status with transition validation
+  async updateOrderStatus(salesInvoiceId: number, status: string, userId: number) {
+    const invoice = await this.prisma.salesInvoice.findUnique({
+      where: { id: salesInvoiceId },
+      include: { lines: true },
+    });
+
+    if (!invoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    const validTransitions: Record<string, string[]> = {
+      PENDING: ['CONFIRMED', 'CANCELLED'],
+      CONFIRMED: ['SHIPPED', 'CANCELLED'],
+      SHIPPED: ['DELIVERED', 'CANCELLED'],
+      DELIVERED: [],
+      CANCELLED: [],
+    };
+
+    const currentStatus = invoice.status || 'PENDING';
+    const targetStatus = status.toUpperCase();
+    const allowed = validTransitions[currentStatus] || [];
+
+    if (!allowed.includes(targetStatus)) {
+      throw new BadRequestException(
+        `Cannot transition from ${currentStatus} to ${targetStatus}`,
+      );
+    }
+
+    if (targetStatus === 'DELIVERED') {
+      return this.deliverSale(salesInvoiceId, userId);
+    }
+
+    if (targetStatus === 'CANCELLED') {
+      return this.cancelSale(salesInvoiceId, userId);
+    }
+
+    return this.prisma.salesInvoice.update({
+      where: { id: salesInvoiceId },
+      data: { status: targetStatus as OrderStatus },
+    });
+  }
+
+  // ✅ NEW: Cancel an order (release reservations)
+  async cancelSale(salesInvoiceId: number, userId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const invoice = await tx.salesInvoice.findUnique({
+        where: { id: salesInvoiceId },
+        include: { lines: true },
+      });
+
+      if (!invoice) {
+        throw new NotFoundException('Invoice not found');
+      }
+
+      if (invoice.delivered) {
+        throw new BadRequestException('Cannot cancel - products already delivered');
+      }
+
+      if (invoice.status === OrderStatus.CANCELLED) {
+        throw new BadRequestException('Order already cancelled');
+      }
+
+      // Find stock location
+      const stockLocation = await tx.stockLocation.findFirst({
+        where: { branchId: invoice.branchId, active: true },
+      });
+
+      // Release reservation for online orders
+      if (invoice.channel === 'ONLINE_STORE' && stockLocation && invoice.lines.length > 0) {
+        await tx.stockMovement.createMany({
+          data: invoice.lines.map((line) => ({
+            productId: line.productId,
+            stockLocationId: stockLocation.id,
+            qtyChange: line.qty,
+            movementType: MovementType.RESERVED,
+            refTable: 'sales_invoices',
+            refId: invoice.id,
+            createdBy: userId,
+          })),
+        });
+      }
+
+      // Mark as cancelled
+      return tx.salesInvoice.update({
+        where: { id: salesInvoiceId },
+        data: {
+          status: OrderStatus.CANCELLED,
         },
       });
     });
@@ -629,6 +740,9 @@ export class SalesService {
               name: true,
             },
           },
+          lines: {
+            include: { product: true },
+          },
         },
       }),
       this.prisma.salesInvoice.count({ where }),
@@ -657,6 +771,14 @@ export class SalesService {
 
     const itemsWithNumbers = items.map((sale) => ({
       ...sale,
+      items: sale.lines.map((l: any) => ({
+        productId: l.productId,
+        productName: l.product?.nameEn || null,
+        quantity: l.qty,
+        unitPrice: Number(l.unitPrice),
+        lineTotal: Number(l.lineTotal),
+        product: l.product,
+      })),
       // ✅ Add platform name
       channelName: sale.channel
         ? platformMap.get(sale.channel) || sale.channel
@@ -762,6 +884,11 @@ export class SalesService {
                 nameAr: true,
                 nameEn: true,
                 barcode: true,
+                code: true,
+                categoryId: true,
+                category: {
+                  select: { nameAr: true, name: true },
+                },
               },
             },
           },

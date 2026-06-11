@@ -31,6 +31,13 @@
     }
 }
 
+.login-logo {
+    height: 70px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto 16px;
+}
+
 .login-icon {
     text-align: center;
     font-size: 4rem;

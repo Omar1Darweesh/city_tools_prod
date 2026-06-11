@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateGRNDto, CreateSupplierDto, CreateSupplierPaymentDto } from './dto/purchasing.dto';
@@ -12,6 +13,8 @@ import { SupplierAuditService } from './supplier-audit.service';
 
 @Injectable()
 export class PurchasingService {
+  private readonly logger = new Logger(PurchasingService.name);
+
   constructor(
     private prisma: PrismaService,
     private costAccountingService: CostAccountingService,
@@ -19,41 +22,170 @@ export class PurchasingService {
     private supplierAuditService: SupplierAuditService,
   ) {}
 
+  private async safeAuditLog(
+    supplierId: number,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    newData: any,
+    oldData: any,
+    userId?: number,
+  ) {
+    if (!userId) return;
+    try {
+      await this.supplierAuditService.logChange(supplierId, action, newData, oldData, userId);
+    } catch (err) {
+      this.logger.error(`Supplier audit log failed (${action}, supplier ${supplierId})`, err);
+    }
+  }
+
+  private mapSupplierWithBalance(s: {
+    id: number; name: string; contact: string | null; phone: string | null;
+    email: string | null; address: string | null; paymentTerms: string | null;
+    active: boolean; createdAt: Date;
+    goodsReceipts: { total: any }[];
+    payments: { amount: any }[];
+    _count: { goodsReceipts: number };
+  }) {
+    const totalInvoiced = s.goodsReceipts.reduce((sum, g) => sum + Number(g.total), 0);
+    const totalPaid = s.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const balance = totalInvoiced - totalPaid;
+    return {
+      id: s.id, name: s.name, contact: s.contact, phone: s.phone,
+      email: s.email, address: s.address, paymentTerms: s.paymentTerms,
+      active: s.active, createdAt: s.createdAt,
+      totalInvoiced, totalPaid, balance, grnCount: s._count.goodsReceipts,
+    };
+  }
+
   // ============= Suppliers =============
 
   async getSuppliersStats() {
-    const [totalSuppliers, activeSuppliers, allGrns, allPayments] = await Promise.all([
+    const [totalSuppliers, activeSuppliers] = await Promise.all([
       this.prisma.supplier.count(),
       this.prisma.supplier.count({ where: { active: true } }),
-      this.prisma.goodsReceipt.findMany({ select: { total: true } }),
-      this.prisma.supplierPayment.findMany({ select: { amount: true } }),
     ]);
 
-    const totalInvoiced = allGrns.reduce((sum, g) => sum + Number(g.total), 0);
-    const totalPaid = allPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-    const totalBalance = totalInvoiced - totalPaid;
+    try {
+      const [allGrns, allPayments] = await Promise.all([
+        this.prisma.goodsReceipt.findMany({ select: { total: true } }),
+        this.prisma.supplierPayment.findMany({ select: { amount: true } }),
+      ]);
 
-    const suppliersWithBalance = await this.prisma.$queryRaw<{ count: string }[]>`
-      SELECT COUNT(DISTINCT s.id)::text as count
-      FROM suppliers s
-      LEFT JOIN goods_receipts gr ON gr.supplier_id = s.id
-      LEFT JOIN supplier_payments sp ON sp.supplier_id = s.id
-      GROUP BY s.id
-      HAVING COALESCE(SUM(gr.total), 0) - COALESCE(SUM(sp.amount), 0) > 0
-    `;
+      const totalInvoiced = allGrns.reduce((sum, g) => sum + Number(g.total), 0);
+      const totalPaid = allPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const totalBalance = totalInvoiced - totalPaid;
 
+      const suppliersWithBalance = await this.prisma.$queryRaw<{ count: string }[]>`
+        SELECT COUNT(DISTINCT s.id)::text as count
+        FROM suppliers s
+        LEFT JOIN goods_receipts gr ON gr.supplier_id = s.id
+        LEFT JOIN supplier_payments sp ON sp.supplier_id = s.id
+        GROUP BY s.id
+        HAVING COALESCE(SUM(gr.total), 0) - COALESCE(SUM(sp.amount), 0) > 0
+      `;
+
+      return {
+        totalSuppliers,
+        activeSuppliers,
+        inactiveSuppliers: totalSuppliers - activeSuppliers,
+        totalInvoiced,
+        totalPaid,
+        totalBalance,
+        suppliersWithBalance: suppliersWithBalance.length,
+      };
+    } catch (err) {
+      this.logger.warn('Supplier stats fallback (payment tables may be missing)', err);
+      return {
+        totalSuppliers,
+        activeSuppliers,
+        inactiveSuppliers: totalSuppliers - activeSuppliers,
+        totalInvoiced: 0,
+        totalPaid: 0,
+        totalBalance: 0,
+        suppliersWithBalance: 0,
+      };
+    }
+  }
+
+  private mapBasicSupplier(s: {
+    id: number; name: string; contact: string | null; phone: string | null;
+    email: string | null; address: string | null; paymentTerms: string | null;
+    active: boolean; createdAt: Date;
+  }) {
     return {
-      totalSuppliers,
-      activeSuppliers,
-      inactiveSuppliers: totalSuppliers - activeSuppliers,
-      totalInvoiced,
-      totalPaid,
-      totalBalance,
-      suppliersWithBalance: suppliersWithBalance.length,
+      id: s.id, name: s.name, contact: s.contact, phone: s.phone,
+      email: s.email, address: s.address, paymentTerms: s.paymentTerms,
+      active: s.active, createdAt: s.createdAt,
+      totalInvoiced: 0, totalPaid: 0, balance: 0, grnCount: 0,
     };
   }
 
   async findAllSuppliersWithBalance(params?: {
+    skip?: number;
+    take?: number;
+    active?: boolean;
+    search?: string;
+    paymentTerms?: string;
+    balanceStatus?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    try {
+      return await this.findAllSuppliersWithBalanceInternal(params);
+    } catch (err) {
+      this.logger.warn('Suppliers with-balance fallback to basic list', err);
+      return this.findAllSuppliersBasicList(params);
+    }
+  }
+
+  private async findAllSuppliersBasicList(params?: {
+    skip?: number;
+    take?: number;
+    active?: boolean;
+    search?: string;
+    paymentTerms?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    const MAX_TAKE = 500;
+    const MAX_SKIP = 100000;
+    const { skip = 0, take = 50, active, search, paymentTerms, sortBy, sortOrder = 'desc' } = params || {};
+    const validatedTake = Math.min(Math.max(1, Number(take) || 50), MAX_TAKE);
+    const validatedSkip = Math.min(Math.max(0, Number(skip) || 0), MAX_SKIP);
+
+    const where: any = {};
+    if (active !== undefined) where.active = active;
+    if (paymentTerms) where.paymentTerms = paymentTerms;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { contact: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [total, suppliers] = await Promise.all([
+      this.prisma.supplier.count({ where }),
+      this.prisma.supplier.findMany({
+        where,
+        skip: validatedSkip,
+        take: validatedTake,
+        orderBy:
+          sortBy === 'name' ? { name: sortOrder } :
+          sortBy === 'createdAt' ? { createdAt: sortOrder } :
+          { createdAt: 'desc' },
+      }),
+    ]);
+
+    return {
+      data: suppliers.map((s) => this.mapBasicSupplier(s)),
+      total,
+      page: Math.floor(validatedSkip / validatedTake) + 1,
+      pageSize: validatedTake,
+    };
+  }
+
+  private async findAllSuppliersWithBalanceInternal(params?: {
     skip?: number;
     take?: number;
     active?: boolean;
@@ -82,6 +214,45 @@ export class PurchasingService {
       ];
     }
 
+    const include = {
+      goodsReceipts: { select: { total: true } },
+      payments: { select: { amount: true } },
+      _count: { select: { goodsReceipts: true } },
+    };
+
+    // Balance filter must run before pagination so employees see the full filtered set
+    if (balanceStatus) {
+      const allSuppliers = await this.prisma.supplier.findMany({
+        where,
+        include,
+        orderBy:
+          sortBy === 'name' ? { name: sortOrder } :
+          sortBy === 'createdAt' ? { createdAt: sortOrder } :
+          { createdAt: 'desc' },
+      });
+
+      let suppliersWithBalance = allSuppliers.map((s) => this.mapSupplierWithBalance(s));
+
+      if (balanceStatus === 'hasBalance') {
+        suppliersWithBalance = suppliersWithBalance.filter(s => s.balance > 0);
+      } else if (balanceStatus === 'noBalance') {
+        suppliersWithBalance = suppliersWithBalance.filter(s => s.balance <= 0);
+      }
+
+      if (sortBy === 'balance') {
+        suppliersWithBalance.sort((a, b) =>
+          sortOrder === 'desc' ? b.balance - a.balance : a.balance - b.balance,
+        );
+      }
+
+      return {
+        data: suppliersWithBalance.slice(validatedSkip, validatedSkip + validatedTake),
+        total: suppliersWithBalance.length,
+        page: Math.floor(validatedSkip / validatedTake) + 1,
+        pageSize: validatedTake,
+      };
+    }
+
     const [total, suppliers] = await Promise.all([
       this.prisma.supplier.count({ where }),
       this.prisma.supplier.findMany({
@@ -92,49 +263,45 @@ export class PurchasingService {
           sortBy === 'name' ? { name: sortOrder } :
           sortBy === 'createdAt' ? { createdAt: sortOrder } :
           { createdAt: 'desc' },
-        include: {
-          goodsReceipts: { select: { total: true } },
-          payments: { select: { amount: true } },
-          _count: { select: { goodsReceipts: true } },
-        },
+        include,
       }),
     ]);
 
-    let suppliersWithBalance = suppliers.map((s) => {
-      const totalInvoiced = s.goodsReceipts.reduce((sum, g) => sum + Number(g.total), 0);
-      const totalPaid = s.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-      const balance = totalInvoiced - totalPaid;
-      return {
-        id: s.id, name: s.name, contact: s.contact, phone: s.phone,
-        email: s.email, address: s.address, paymentTerms: s.paymentTerms,
-        active: s.active, createdAt: s.createdAt,
-        totalInvoiced, totalPaid, balance, grnCount: s._count.goodsReceipts,
-      };
-    });
-
-    if (balanceStatus === 'hasBalance') {
-      suppliersWithBalance = suppliersWithBalance.filter(s => s.balance > 0);
-    } else if (balanceStatus === 'noBalance') {
-      suppliersWithBalance = suppliersWithBalance.filter(s => s.balance <= 0);
-    }
+    let suppliersWithBalance = suppliers.map((s) => this.mapSupplierWithBalance(s));
 
     if (sortBy === 'balance') {
       suppliersWithBalance.sort((a, b) =>
-        sortOrder === 'desc' ? b.balance - a.balance : a.balance - b.balance
+        sortOrder === 'desc' ? b.balance - a.balance : a.balance - b.balance,
       );
     }
 
     return {
       data: suppliersWithBalance,
-      total: balanceStatus ? suppliersWithBalance.length : total,
+      total,
       page: Math.floor(validatedSkip / validatedTake) + 1,
       pageSize: validatedTake,
     };
   }
 
   async createSupplier(createSupplierDto: CreateSupplierDto, userId?: number) {
-    const supplier = await this.prisma.supplier.create({ data: createSupplierDto });
-    if (userId) await this.supplierAuditService.logChange(supplier.id, 'CREATE', supplier, null, userId);
+    const data = {
+      ...createSupplierDto,
+      name: createSupplierDto.name?.trim(),
+      contact: createSupplierDto.contact?.trim() || undefined,
+      phone: createSupplierDto.phone?.trim() || undefined,
+      email: createSupplierDto.email?.trim() || undefined,
+      address: createSupplierDto.address?.trim() || undefined,
+    };
+
+    const existing = await this.prisma.supplier.findFirst({
+      where: { name: { equals: data.name, mode: 'insensitive' } },
+    });
+    if (existing) {
+      throw new BadRequestException('يوجد مورد بنفس الاسم مسبقاً');
+    }
+
+    const supplier = await this.prisma.supplier.create({ data });
+    await this.safeAuditLog(supplier.id, 'CREATE', supplier, null, userId);
     return supplier;
   }
 
@@ -156,9 +323,10 @@ export class PurchasingService {
     if (active !== undefined) where.active = active;
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { contact: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { contact: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search } },
+        { email: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -168,7 +336,7 @@ export class PurchasingService {
         where,
         skip: validatedSkip,
         take: validatedTake,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { name: 'asc' },
       }),
     ]);
 
@@ -191,20 +359,20 @@ export class PurchasingService {
   async updateSupplier(id: number, data: any, userId?: number) {
     const old = await this.findOneSupplier(id);
     const updated = await this.prisma.supplier.update({ where: { id }, data });
-    if (userId) await this.supplierAuditService.logChange(id, 'UPDATE', updated, old, userId);
+    await this.safeAuditLog(id, 'UPDATE', updated, old, userId);
     return updated;
   }
 
   async removeSupplier(id: number, userId?: number) {
     const supplier = await this.findOneSupplier(id);
-    if (userId) await this.supplierAuditService.logChange(id, 'DELETE', null, supplier, userId);
+    await this.safeAuditLog(id, 'DELETE', null, supplier, userId);
     return this.prisma.supplier.delete({ where: { id } });
   }
 
   async toggleSupplierActive(id: number, userId?: number) {
     const supplier = await this.findOneSupplier(id);
     const updated = await this.prisma.supplier.update({ where: { id }, data: { active: !supplier.active } });
-    if (userId) await this.supplierAuditService.logChange(id, 'UPDATE', updated, supplier, userId);
+    await this.safeAuditLog(id, 'UPDATE', updated, supplier, userId);
     return updated;
   }
 

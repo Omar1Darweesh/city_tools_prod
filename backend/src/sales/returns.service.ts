@@ -983,6 +983,7 @@ export class ReturnsService {
                   nameAr: true,
                   nameEn: true,
                   barcode: true,
+                  code: true,
                 },
               },
             },

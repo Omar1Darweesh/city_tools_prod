@@ -32,7 +32,7 @@ function Login({ onLoginSuccess }: { onLoginSuccess: () => void }) {
         <div className="login-container">
             <div className="login-card">
                 <div className="login-header">
-                    <div className="cart-icon">🛒</div>
+                    <img src="/pos-client/CT Logo.png" alt="City Tools" className="login-logo" />
                     <h1>نظام نقاط البيع</h1>
                     <h2>تسجيل الدخول</h2>
                 </div>

@@ -20,6 +20,18 @@ export class CreateCategoryDto {
   @IsOptional()
   nameAr?: string;
 
+  @IsString()
+  @IsOptional()
+  slug?: string;
+
+  @IsString()
+  @IsOptional()
+  color?: string;
+
+  @IsString()
+  @IsOptional()
+  icon?: string;
+
   @IsBoolean()
   @IsOptional()
   active?: boolean;
@@ -46,6 +58,18 @@ export class UpdateCategoryDto {
   @IsString()
   @IsOptional()
   nameAr?: string;
+
+  @IsString()
+  @IsOptional()
+  slug?: string;
+
+  @IsString()
+  @IsOptional()
+  color?: string;
+
+  @IsString()
+  @IsOptional()
+  icon?: string;
 
   @IsBoolean()
   @IsOptional()

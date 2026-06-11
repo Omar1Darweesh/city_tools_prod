@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import apiClient from '../api/client';
 import { useNavigate } from 'react-router-dom';
-import { LogIn } from 'lucide-react';
 
 export default function Login() {
     const [username, setUsername] = useState('');
@@ -30,8 +29,9 @@ export default function Login() {
     return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f1f5f9' }}>
             <div className="card" style={{ width: '400px' }}>
-                <div style={{ textAlign: 'center', marginBottom: '20px', color: 'var(--primary)' }}>
-                    <LogIn size={48} />
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                    <img src="/backoffice/CT Logo.png" alt="City Tools"
+                         style={{ height: '60px', objectFit: 'contain', marginBottom: '10px' }} />
                     <h2>تسجيل الدخول للنظام</h2>
                 </div>
 

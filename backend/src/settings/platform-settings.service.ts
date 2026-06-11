@@ -25,6 +25,7 @@ export class PlatformSettingsService {
     commission: number;
     shippingFee?: number;
     active?: boolean;
+    showRatings?: boolean;
   }) {
     // 1. Create or update the platform
     const platformResult = await this.prisma.platformSettings.upsert({
@@ -32,10 +33,11 @@ export class PlatformSettingsService {
       update: {
         taxRate: data.taxRate,
         commission: data.commission,
-        shippingFee: data.shippingFee ?? 0, // ✅ Default to 0
-        active: data.active ?? true, // ✅ Default to true
+        shippingFee: data.shippingFee ?? 0,
+        active: data.active ?? true,
         ...(data.name && { name: data.name }),
         ...(data.icon && { icon: data.icon }),
+        ...(data.showRatings !== undefined && { showRatings: data.showRatings }),
       },
       create: {
         platform: data.platform,
@@ -43,8 +45,9 @@ export class PlatformSettingsService {
         icon: data.icon || '🏪',
         taxRate: data.taxRate,
         commission: data.commission,
-        shippingFee: data.shippingFee ?? 0, // ✅ Default to 0
-        active: data.active ?? true, // ✅ Default to true
+        shippingFee: data.shippingFee ?? 0,
+        active: data.active ?? true,
+        ...(data.showRatings !== undefined && { showRatings: data.showRatings }),
       },
     });
 

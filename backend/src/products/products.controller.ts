@@ -163,6 +163,7 @@ export class ProductsController {
     @Query('active') active?: string,
     @Query('branchId') branchId?: string,
     @Query('stockStatus') stockStatus?: string,
+    @Query('hasImage') hasImage?: string,
   ) {
     return this.productsService.findAll({
       skip: skip ? Number(skip) : undefined,
@@ -178,7 +179,9 @@ export class ProductsController {
         | 'low'
         | 'enough'
         | 'high'
+        | 'available'
         | undefined,
+      hasImage: hasImage !== undefined ? hasImage === 'true' : undefined,
     });
   }
 

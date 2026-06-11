@@ -156,6 +156,9 @@ model Category {
   id            Int           @id @default(autoincrement())
   name          String        @db.VarChar(255)
   nameAr        String?       @map("name_ar") @db.VarChar(255)
+  slug          String?       @unique @db.VarChar(255)
+  color         String?       @default("#2563eb") @db.VarChar(20)
+  icon          String?       @default("Wrench") @db.VarChar(50)
   active        Boolean       @default(true)
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
@@ -214,11 +217,18 @@ model Product {
   costAvg          Decimal             @default(0) @map("cost_avg") @db.Decimal(10, 2)
   priceRetail      Decimal             @default(0) @map("price_retail") @db.Decimal(10, 2)
   priceWholesale   Decimal             @default(0) @map("price_wholesale") @db.Decimal(10, 2)
+  discountPrice    Decimal?            @map("discount_price") @db.Decimal(10, 2)
   retailMargin         Float?          @map("retail_margin")
   wholesaleMargin      Float?          @map("wholesale_margin")
   minQty           Int?                @map("min_qty")
   maxQty           Int?                @map("max_qty")
   active           Boolean             @default(true)
+  isPopular        Boolean             @default(false) @map("is_popular")
+  isBestSale       Boolean             @default(false) @map("is_best_sale")
+  description      String?             @db.Text
+  badge            String?             @db.VarChar(20)
+  rating           Float               @default(0)
+  images           Json                @default("[]")
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
   itemTypeId       Int?                @map("item_type_id")
@@ -320,6 +330,9 @@ model SalesInvoice {
   delivered          Boolean        @default(false)
   deliveryDate       DateTime?      @map("deliverydate")
   
+  // Order fulfillment status
+  status             OrderStatus    @default(PENDING)
+
   // Payment tracking
   paidAmount         Decimal        @default(0) @map("paidamount") @db.Decimal(10, 2)
   remainingAmount    Decimal        @default(0) @map("remainingamount") @db.Decimal(10, 2)
@@ -516,8 +529,71 @@ model PlatformSettings {
   icon        String?  @db.VarChar(10)
   name        String?  @db.VarChar(100)
   shippingFee Decimal  @default(0) @map("shipping_fee") @db.Decimal(10, 2)
+  showRatings Boolean  @default(true) @map("show_ratings")
 
   @@map("platform_settings")
+}
+
+model StoreStatistic {
+  id          Int      @id @default(autoincrement())
+  value       String   @db.VarChar(50)
+  labelEn     String   @map("label_en") @db.VarChar(100)
+  labelAr     String?  @map("label_ar") @db.VarChar(100)
+  sortOrder   Int      @default(0) @map("sort_order")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("store_statistics")
+}
+
+model StoreDiscountCard {
+  id          Int      @id @default(autoincrement())
+  badgeEn     String?  @map("badge_en") @db.VarChar(100)
+  badgeAr     String?  @map("badge_ar") @db.VarChar(100)
+  titleEn     String   @map("title_en") @db.VarChar(255)
+  titleAr     String?  @map("title_ar") @db.VarChar(255)
+  descEn      String?  @map("desc_en") @db.Text
+  descAr      String?  @map("desc_ar") @db.Text
+  linkUrl     String?  @map("link_url") @db.VarChar(500)
+  linkLabelEn String?  @map("link_label_en") @db.VarChar(100)
+  linkLabelAr String?  @map("link_label_ar") @db.VarChar(100)
+  bgColor     String?  @map("bg_color") @db.VarChar(200)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("store_discount_cards")
+}
+
+model StoreTrustFeature {
+  id          Int      @id @default(autoincrement())
+  icon        String?  @db.VarChar(50)
+  titleEn     String   @map("title_en") @db.VarChar(100)
+  titleAr     String?  @map("title_ar") @db.VarChar(100)
+  subtitleEn  String?  @map("subtitle_en") @db.VarChar(200)
+  subtitleAr  String?  @map("subtitle_ar") @db.VarChar(200)
+  sortOrder   Int      @default(0) @map("sort_order")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("store_trust_features")
+}
+
+
+
+model StoreBrand {
+  id          String   @id @db.VarChar(255)
+  name        String   @db.VarChar(255)
+  nameAr      String?  @map("name_ar") @db.VarChar(255)
+  logo        String?  @db.Text
+  isTrusted   Boolean? @default(true) @map("is_trusted")
+  sortOrder   Int?     @default(0) @map("sort_order")
+  productCount Int?    @default(0) @map("product_count")
+
+  @@map("store_brands")
 }
 
 model PriceHistory {
@@ -554,6 +630,15 @@ enum MovementType {
   TRANSFER_IN
   TRANSFER_OUT
   ADJUSTMENT
+  RESERVED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
 }
 
 enum PaymentStatus {

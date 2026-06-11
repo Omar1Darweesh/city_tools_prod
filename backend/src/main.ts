@@ -1,19 +1,34 @@
 import { NestFactory } from '@nestjs/core';
+import { ExpressAdapter } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { DatabaseService } from './database/database.service';
 import * as dotenv from 'dotenv';
 import * as os from 'os';
 import * as cron from 'node-cron';
+import * as express from 'express';
+import * as bodyParser from 'body-parser';
 
 // Load environment variables
 dotenv.config();
 
 async function bootstrap() {
   try {
-    const app = await NestFactory.create(AppModule, {
-      logger: ['error', 'warn', 'log'],
-    });
+    // ── Create a raw Express instance and attach body parsers ──
+    // This happens BEFORE NestJS init so NestJS never sees the
+    // request before our 10mb limit parsers.
+    const server = express();
+    server.use(bodyParser.json({ limit: '50mb' }));
+    server.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+
+    const app = await NestFactory.create(
+      AppModule,
+      new ExpressAdapter(server),
+      {
+        logger: ['error', 'warn', 'log'],
+        bodyParser: false,
+      },
+    );
 
     // Enable CORS for all local network IPs
     app.enableCors({

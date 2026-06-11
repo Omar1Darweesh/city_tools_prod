@@ -15,6 +15,7 @@ import StockAdjustments from './pages/StockAdjustments';
 //import Transfers from './pages/Transfers';
 import Returns from './pages/Returns';
 import PlatformSettings from './pages/PlatformSettings';
+
 import PriceManagement from './pages/PriceManagement';
 import ProductTransactions from './pages/ProductTransactions';
 import CustomerPayments from './pages/CustomerPayments';
@@ -33,7 +34,7 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/backoffice">
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>

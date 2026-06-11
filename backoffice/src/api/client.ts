@@ -18,14 +18,14 @@ apiClient.interceptors.request.use((config) => {
     return config;
 });
 
-// Handle 401 errors (logout)
+// Handle 401 errors (logout) — skip login endpoint so Login component can handle its own errors
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
+        if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
             localStorage.removeItem('accessToken');
             localStorage.removeItem('user');
-            window.location.href = '/login';
+            window.location.href = '/backoffice/login';
         }
         return Promise.reject(error);
     }

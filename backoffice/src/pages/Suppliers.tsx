@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import apiClient from '../api/client';
 import * as XLSX from 'xlsx';
 import {
@@ -95,6 +95,73 @@ const emptyForm = { name: '', contact: '', phone: '', email: '', address: '', pa
 // Helper functions
 const fmt = (n: number) => n.toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const toSupplierWithBalance = (s: Record<string, unknown>): SupplierWithBalance => ({
+    id: s.id as number,
+    name: s.name as string,
+    contact: (s.contact as string | null) ?? null,
+    phone: (s.phone as string | null) ?? null,
+    email: (s.email as string | null) ?? null,
+    address: (s.address as string | null) ?? null,
+    paymentTerms: (s.paymentTerms as string) || 'CASH',
+    active: s.active !== false,
+    createdAt: String(s.createdAt || ''),
+    totalInvoiced: Number(s.totalInvoiced) || 0,
+    totalPaid: Number(s.totalPaid) || 0,
+    balance: Number(s.balance) || 0,
+    grnCount: Number(s.grnCount) || 0,
+});
+
+const buildSupplierQuery = (page: number, filters: Filters, take = PAGE_SIZE) => {
+    const params = new URLSearchParams();
+    params.append('skip', String(page * take));
+    params.append('take', String(take));
+    if (filters.search) params.append('search', filters.search);
+    if (filters.paymentTerms) params.append('paymentTerms', filters.paymentTerms);
+    if (filters.active) params.append('active', filters.active);
+    if (filters.balanceStatus) params.append('balanceStatus', filters.balanceStatus);
+    if (filters.sortBy) params.append('sortBy', filters.sortBy);
+    if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
+    return params;
+};
+
+/** Fallback when /with-balance or /stats are missing on older servers */
+const fetchSuppliersList = async (page: number, filters: Filters, take = PAGE_SIZE) => {
+    const params = buildSupplierQuery(page, filters, take);
+    try {
+        const { data } = await apiClient.get(`/purchasing/suppliers/with-balance?${params}`);
+        return { data: data.data || [], total: data.total || 0 };
+    } catch {
+        const basic = new URLSearchParams();
+        basic.append('skip', String(page * take));
+        basic.append('take', String(take));
+        if (filters.search) basic.append('search', filters.search);
+        if (filters.active) basic.append('active', filters.active);
+        const { data } = await apiClient.get(`/purchasing/suppliers?${basic}`);
+        const list = (data.data || []).map(toSupplierWithBalance);
+        return { data: list, total: data.total || list.length };
+    }
+};
+
+const fetchSuppliersStats = async (): Promise<SupplierStats | null> => {
+    try {
+        const { data } = await apiClient.get('/purchasing/suppliers/stats');
+        return data;
+    } catch {
+        const { data } = await apiClient.get('/purchasing/suppliers?take=500');
+        const list: SupplierWithBalance[] = (data.data || []).map(toSupplierWithBalance);
+        const activeSuppliers = list.filter(s => s.active).length;
+        return {
+            totalSuppliers: data.total || list.length,
+            activeSuppliers,
+            inactiveSuppliers: list.length - activeSuppliers,
+            totalInvoiced: 0,
+            totalPaid: 0,
+            totalBalance: 0,
+            suppliersWithBalance: 0,
+        };
+    }
+};
+
 // Stats Card Component
 function StatCard({ icon, label, value, subValue, bg, iconColor, valueColor }: {
     icon: React.ReactNode; label: string; value: string | number; subValue?: string;
@@ -141,36 +208,42 @@ export default function Suppliers() {
     const [historySupplier, setHistorySupplier] = useState<SupplierWithBalance | null>(null);
     const [detailsSupplier, setDetailsSupplier] = useState<SupplierWithBalance | null>(null);
     const [exporting, setExporting] = useState(false);
+    const [searchInput, setSearchInput] = useState('');
+    const [loadError, setLoadError] = useState('');
+    const submittingRef = useRef(false);
+
+    // Debounce search so typing doesn't miss suppliers due to rapid API calls
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setFilters(f => (f.search === searchInput ? f : { ...f, search: searchInput }));
+            setPage(0);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchInput]);
 
     // Load stats
     const loadStats = useCallback(async () => {
         setStatsLoading(true);
         try {
-            const { data } = await apiClient.get('/purchasing/suppliers/stats');
-            setStats(data);
-        } catch (e) { console.error('Failed to load stats', e); }
-        finally { setStatsLoading(false); }
+            setStats(await fetchSuppliersStats());
+        } catch (e) {
+            console.error('Failed to load stats', e);
+        } finally { setStatsLoading(false); }
     }, []);
 
-    // Load suppliers with balance
     const loadSuppliers = useCallback(async () => {
         setLoading(true);
+        setLoadError('');
         try {
-            const params = new URLSearchParams();
-            params.append('skip', String(page * PAGE_SIZE));
-            params.append('take', String(PAGE_SIZE));
-            if (filters.search) params.append('search', filters.search);
-            if (filters.paymentTerms) params.append('paymentTerms', filters.paymentTerms);
-            if (filters.active) params.append('active', filters.active);
-            if (filters.balanceStatus) params.append('balanceStatus', filters.balanceStatus);
-            if (filters.sortBy) params.append('sortBy', filters.sortBy);
-            if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
-
-            const { data } = await apiClient.get(`/purchasing/suppliers/with-balance?${params.toString()}`);
-            setSuppliers(data.data || []);
-            setTotal(data.total || 0);
-        } catch (e) { console.error('Failed to load suppliers', e); }
-        finally { setLoading(false); }
+            const result = await fetchSuppliersList(page, filters);
+            setSuppliers(result.data);
+            setTotal(result.total);
+        } catch (e) {
+            console.error('Failed to load suppliers', e);
+            setSuppliers([]);
+            setTotal(0);
+            setLoadError('تعذر تحميل الموردين — تأكدي من اتصال السيرفر');
+        } finally { setLoading(false); }
     }, [page, filters]);
 
     useEffect(() => { loadStats(); }, [loadStats]);
@@ -189,15 +262,32 @@ export default function Suppliers() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (submittingRef.current || saving) return;
+        submittingRef.current = true;
         setSaving(true);
+
+        const payload = {
+            name: form.name.trim(),
+            contact: form.contact.trim() || undefined,
+            phone: form.phone.trim() || undefined,
+            email: form.email.trim() || undefined,
+            address: form.address.trim() || undefined,
+            paymentTerms: form.paymentTerms,
+        };
+
         try {
-            if (editing) await apiClient.patch(`/purchasing/suppliers/${editing.id}`, form);
-            else await apiClient.post('/purchasing/suppliers', form);
+            if (editing) await apiClient.patch(`/purchasing/suppliers/${editing.id}`, payload);
+            else await apiClient.post('/purchasing/suppliers', payload);
             setShowModal(false);
-            loadSuppliers();
-            loadStats();
-        } catch { alert('فشل حفظ المورد'); }
-        finally { setSaving(false); }
+            setForm(emptyForm);
+            await Promise.all([loadSuppliers(), loadStats()]);
+        } catch (err: any) {
+            const msg = err?.response?.data?.message;
+            alert(Array.isArray(msg) ? msg.join('\n') : (msg || 'فشل حفظ المورد'));
+        } finally {
+            submittingRef.current = false;
+            setSaving(false);
+        }
     };
 
     const handleDelete = async (id: number) => {
@@ -223,15 +313,7 @@ export default function Suppliers() {
         setExporting(true);
         try {
             // Load all suppliers for export
-            const params = new URLSearchParams();
-            params.append('take', '10000');
-            if (filters.search) params.append('search', filters.search);
-            if (filters.paymentTerms) params.append('paymentTerms', filters.paymentTerms);
-            if (filters.active) params.append('active', filters.active);
-            if (filters.balanceStatus) params.append('balanceStatus', filters.balanceStatus);
-
-            const { data } = await apiClient.get(`/purchasing/suppliers/with-balance?${params.toString()}`);
-            const allSuppliers: SupplierWithBalance[] = data.data || [];
+            const { data: allSuppliers } = await fetchSuppliersList(0, filters, 500);
 
             // Prepare Excel data
             const exportData = allSuppliers.map((s, i) => ({
@@ -269,6 +351,7 @@ export default function Suppliers() {
     };
 
     const resetFilters = () => {
+        setSearchInput('');
         setFilters({ search: '', paymentTerms: '', active: '', balanceStatus: '', sortBy: 'createdAt', sortOrder: 'desc' });
         setPage(0);
     };
@@ -300,6 +383,15 @@ export default function Suppliers() {
                     إدارة بيانات الموردين ومتابعة الأرصدة والمدفوعات
                 </p>
             </header>
+
+            {loadError && (
+                <div style={{
+                    marginBottom: '16px', padding: '12px 16px', borderRadius: '10px',
+                    background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '14px',
+                }}>
+                    {loadError}
+                </div>
+            )}
 
             {/* Stats Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
@@ -335,8 +427,8 @@ export default function Suppliers() {
                         <Search size={16} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
                         <input type="text" placeholder="بحث بالاسم، الهاتف، البريد..." className="input-field"
                             style={{ paddingRight: '38px', width: '100%' }}
-                            value={filters.search}
-                            onChange={e => { setFilters(f => ({ ...f, search: e.target.value })); setPage(0); }} />
+                            value={searchInput}
+                            onChange={e => setSearchInput(e.target.value)} />
                     </div>
 
                     {/* Toggle Filters */}

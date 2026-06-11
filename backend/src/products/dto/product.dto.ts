@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsBoolean,
   Min,
+  IsArray,
 } from 'class-validator';
 
 export class CreateProductDto {
@@ -67,11 +68,42 @@ export class CreateProductDto {
   @IsNumber()
   @Min(0, { message: 'Initial stock cannot be negative' })
   @IsOptional()
-  initialStock?: number; // ✅ ADD THIS
+  initialStock?: number;
 
   @IsBoolean()
   @IsOptional()
   active?: boolean;
+
+  // Store-specific fields
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  discountPrice?: number;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  badge?: string;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  rating?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  isPopular?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isBestSale?: boolean;
+
+  @IsArray()
+  @IsOptional()
+  images?: string[];
 }
 
 export class UpdateProductDto {
@@ -140,4 +172,35 @@ export class UpdateProductDto {
   @IsBoolean()
   @IsOptional()
   active?: boolean;
+
+  // Store-specific fields
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  discountPrice?: number;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  badge?: string;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  rating?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  isPopular?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isBestSale?: boolean;
+
+  @IsArray()
+  @IsOptional()
+  images?: string[];
 }

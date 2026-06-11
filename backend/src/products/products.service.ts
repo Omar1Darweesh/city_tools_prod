@@ -74,11 +74,18 @@ export class ProductsService {
     return category;
   }
 
+  private slugify(name: string): string {
+    return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  }
+
   async createCategory(data: CreateCategoryDto) {
     return this.prisma.category.create({
       data: {
         name: data.name,
         nameAr: data.nameAr,
+        slug: data.slug || this.slugify(data.name),
+        color: data.color || '#2563eb',
+        icon: data.icon || 'Wrench',
         active: data.active ?? true,
       },
     });
@@ -338,6 +345,13 @@ export class ProductsService {
       minQty: productData.minQty,
       maxQty: productData.maxQty,
       active: productData.active ?? true,
+      discountPrice: productData.discountPrice ?? undefined,
+      description: productData.description ?? undefined,
+      badge: productData.badge ?? undefined,
+      rating: productData.rating ?? 0,
+      isPopular: productData.isPopular ?? false,
+      isBestSale: productData.isBestSale ?? false,
+      images: productData.images ?? [],
     };
 
     // Add categoryId only if provided
@@ -440,7 +454,8 @@ export class ProductsService {
     itemTypeId?: number;
     active?: boolean;
     branchId?: number;
-    stockStatus?: 'empty' | 'low' | 'enough' | 'high';
+    stockStatus?: 'empty' | 'low' | 'enough' | 'high' | 'available';
+    hasImage?: boolean;
   }) {
     const MAX_TAKE = 2000; // ✅ INCREASED: Support larger product catalogs
     const MAX_SKIP = 100000;
@@ -454,6 +469,7 @@ export class ProductsService {
       active,
       branchId,
       stockStatus,
+      hasImage,
     } = params || {};
 
     // ✅ FIXED: Add max limits to prevent resource exhaustion
@@ -500,6 +516,14 @@ export class ProductsService {
       where.active = active;
     }
 
+    if (hasImage !== undefined) {
+      if (hasImage) {
+        where.images = { not: [] };
+      } else {
+        where.images = { equals: [] };
+      }
+    }
+
     // ✅ NEW: Server-side Stock Filtering
     if (stockStatus) {
       let havingClause = '';
@@ -507,6 +531,9 @@ export class ProductsService {
       switch (stockStatus) {
         case 'empty':
           havingClause = 'HAVING COALESCE(SUM(sm.qty_change), 0) <= 0';
+          break;
+        case 'available':
+          havingClause = 'HAVING COALESCE(SUM(sm.qty_change), 0) > 0';
           break;
         case 'low':
           havingClause =
@@ -912,6 +939,20 @@ export class ProductsService {
       updateData.categoryId = updateProductDto.categoryId;
     if (updateProductDto.itemTypeId !== undefined)
       updateData.itemTypeId = updateProductDto.itemTypeId;
+    if (updateProductDto.discountPrice !== undefined)
+      updateData.discountPrice = updateProductDto.discountPrice;
+    if (updateProductDto.description !== undefined)
+      updateData.description = updateProductDto.description;
+    if (updateProductDto.badge !== undefined)
+      updateData.badge = updateProductDto.badge;
+    if (updateProductDto.rating !== undefined)
+      updateData.rating = updateProductDto.rating;
+    if (updateProductDto.isPopular !== undefined)
+      updateData.isPopular = updateProductDto.isPopular;
+    if (updateProductDto.isBestSale !== undefined)
+      updateData.isBestSale = updateProductDto.isBestSale;
+    if (updateProductDto.images !== undefined)
+      updateData.images = updateProductDto.images;
 
     const updated = await this.prisma.product.update({
       where: { id },

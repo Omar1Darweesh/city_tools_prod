@@ -96,10 +96,9 @@ export default function Layout() {
                 flexDirection: 'column'
             }}>
                 {/* Header */}
-                <div style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                    <h2 style={{ color: 'white', fontSize: '20px', fontWeight: 'bold', margin: 0, textAlign: 'center' }}>
-                        نظام الإدارة
-                    </h2>
+                <div style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
+                    <img src="/backoffice/CT Logo.png" alt="City Tools"
+                         style={{ height: '40px', maxWidth: '100%', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
                     <p style={{ color: '#94a3b8', fontSize: '13px', textAlign: 'center', margin: '5px 0 0' }}>
                         {user.fullName || 'مستخدم'}
                     </p>

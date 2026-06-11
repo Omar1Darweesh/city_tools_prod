@@ -39,6 +39,10 @@ export class CreatePlatformDto {
   @IsBoolean()
   @IsOptional()
   active?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  showRatings?: boolean;
 }
 
 export class UpdatePlatformDto {
@@ -66,4 +70,8 @@ export class UpdatePlatformDto {
 
   @IsBoolean()
   active: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  showRatings?: boolean;
 }

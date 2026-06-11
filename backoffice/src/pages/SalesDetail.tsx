@@ -21,6 +21,9 @@ interface SaleDetail {
     paymentMethod: string;
     paymentStatus: string;
     channel: string;
+    status?: string;
+    delivered?: boolean;
+    deliveryDate?: string;
     notes: string;
     createdAt: string;
     customer: {
@@ -44,6 +47,8 @@ interface SaleDetail {
             nameEn: string;
             nameAr?: string;
             barcode: string;
+            code?: string;
+            category?: { nameAr?: string; name?: string } | null;
         };
         productId: number;
     }>;
@@ -63,6 +68,7 @@ interface ReturnData {
             nameAr: string;
             nameEn: string;
             barcode: string;
+            code?: string;
         };
     }>;
 }
@@ -105,6 +111,31 @@ export default function SalesDetail() {
     const handlePrint = () => {
         window.print();
     };
+
+    const handleCancelOrder = async () => {
+        if (!window.confirm('هل أنت متأكد من إلغاء هذا الطلب؟')) return;
+        try {
+            await apiClient.post(`/pos/sales/${id}/cancel`);
+            alert('تم إلغاء الطلب بنجاح');
+            refreshData();
+        } catch (error) {
+            console.error('Failed to cancel order:', error);
+            alert('فشل إلغاء الطلب');
+        }
+    };
+
+    const handleDeliverOrder = async () => {
+        if (!window.confirm('هل أنت متأكد من توصيل هذا الطلب؟')) return;
+        try {
+            await apiClient.post(`/pos/sales/${id}/deliver`);
+            alert('تم توصيل الطلب بنجاح');
+            refreshData();
+        } catch (error) {
+            console.error('Failed to deliver order:', error);
+            alert('فشل توصيل الطلب');
+        }
+    };
+
     // ✅ NEW: Refresh data function
     const refreshData = async () => {
         if (!id) return;
@@ -331,24 +362,62 @@ export default function SalesDetail() {
                         >
                             🔄 تحديث
                         </button>
-                        <button
-                            onClick={handlePrint}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '10px 20px',
-                                background: '#007bff',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '14px'
-                            }}
-                        >
-                            <Printer size={18} />
-                            طباعة
-                        </button>
+                                        {sale.channel === 'ONLINE_STORE' && sale.status && sale.status !== 'DELIVERED' && sale.status !== 'CANCELLED' && (
+                                            <>
+                                                <button
+                                                    onClick={handleDeliverOrder}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        padding: '10px 20px',
+                                                        background: '#16a34a',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '14px'
+                                                    }}
+                                                >
+                                                    توصيل
+                                                </button>
+                                                <button
+                                                    onClick={handleCancelOrder}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        padding: '10px 20px',
+                                                        background: '#dc2626',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '14px'
+                                                    }}
+                                                >
+                                                    إلغاء
+                                                </button>
+                                            </>
+                                        )}
+                                        <button
+                                            onClick={handlePrint}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                padding: '10px 20px',
+                                                background: '#007bff',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                fontSize: '14px'
+                                            }}
+                                        >
+                                            <Printer size={18} />
+                                            طباعة
+                                        </button>
                     </div>
                 </div>
 
@@ -419,6 +488,11 @@ export default function SalesDetail() {
                                         {line.priceType === 'CUSTOM' && (
                                             <span style={{ fontSize: '9px', marginRight: '4px' }}> *</span>
                                         )}
+                                    </div>
+                                    <div style={{ fontSize: '9px', color: '#000', fontWeight: 'bold' }}>
+                                        {line.product.code || ''}
+                                        {line.product.code && line.product.category ? ' - ' : ''}
+                                        {line.product.category?.nameAr || line.product.category?.name || ''}
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600 }}>
                                         <span style={{ color: '#000' }}>
@@ -520,6 +594,20 @@ export default function SalesDetail() {
                         <InfoCard label="الموظف" value={sale.user.fullName} />
                         <InfoCard label="طريقة الدفع" value={sale.paymentMethod} />
                         <InfoCard label="القناة" value={sale.channel || '-'} />
+                        {sale.channel === 'ONLINE_STORE' && (
+                            <InfoCard
+                                label="حالة الطلب"
+                                value={
+                                    {
+                                        PENDING: 'قيد الانتظار',
+                                        CONFIRMED: 'مؤكد',
+                                        SHIPPED: 'تم الشحن',
+                                        DELIVERED: 'تم التوصيل',
+                                        CANCELLED: 'ملغي',
+                                    }[sale.status || 'PENDING'] || sale.status || 'قيد الانتظار'
+                                }
+                            />
+                        )}
                         <InfoCard
                             label="العميل"
                             value={sale.customer?.name ? `${sale.customer.name} (${sale.customer.type})` : 'عميل نقدي'}
@@ -565,7 +653,12 @@ export default function SalesDetail() {
                                         return (
                                             <tr key={line.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                                                 <td style={{ padding: '12px', fontSize: '14px', color: '#334155' }}>
-                                                    {line.product.nameAr || line.product.nameEn}
+                                                    <div>{line.product.nameAr || line.product.nameEn}</div>
+                                                    <div style={{ fontSize: '12px', color: '#000', fontFamily: 'monospace', fontWeight: 700 }}>
+                                                        {line.product.code || ''}
+                                                        {line.product.code && (line.product.category?.nameAr || line.product.category?.name) ? ' / ' : ''}
+                                                        {line.product.category?.nameAr || line.product.category?.name || ''}
+                                                    </div>
                                                     {line.priceType === 'CUSTOM' && (
                                                         <span style={{
                                                             marginRight: '8px',
@@ -721,8 +814,8 @@ export default function SalesDetail() {
                                                     <tr key={line.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                                                         <td style={{ padding: '10px', fontSize: '14px', color: '#374151' }}>
                                                             {line.product.nameAr || line.product.nameEn}
-                                                            <div style={{ fontSize: '12px', color: '#9ca3af', fontFamily: 'monospace' }}>
-                                                                {line.product.barcode}
+                                                            <div style={{ fontSize: '12px', color: '#9ca3af', fontFamily: 'monospace', fontWeight: 700 }}>
+                                                                {line.product.code ? `${line.product.code} - ` : ''}{line.product.barcode}
                                                             </div>
                                                         </td>
                                                         <td style={{ padding: '10px', textAlign: 'center' }}>

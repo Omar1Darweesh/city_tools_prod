@@ -20,6 +20,9 @@ interface Sale {
     remainingAmount: number;
     channel?: string;
     channelName?: string;
+    status?: string;
+    delivered?: boolean;
+    deliveryDate?: string;
     customer?: { name: string };
     user?: { fullName: string; id: number };
     branch?: { name: string };
@@ -199,7 +202,9 @@ export default function Sales() {
         try {
             const params = buildSalesQueryParams();
             const res = await apiClient.get('/pos/sales', { params });
-            setSales(res.data.data);
+            const allSales = res.data.data || [];
+            // Hide non-delivered online store orders from sales list
+            setSales(allSales.filter((s: any) => s.channel !== 'ONLINE_STORE' || s.status === 'DELIVERED'));
         } catch (error) {
             console.error('Failed to fetch sales:', error);
         } finally {
@@ -373,6 +378,46 @@ export default function Sales() {
 
     const handleViewDetails = (saleId: number) => {
         navigate(`/sales/${saleId}`);
+    };
+
+    const handleCancelOrder = async (saleId: number) => {
+        if (!window.confirm('هل أنت متأكد من إلغاء هذا الطلب؟')) return;
+        try {
+            await apiClient.post(`/pos/sales/${saleId}/cancel`);
+            fetchSales();
+        } catch (error) {
+            console.error('Failed to cancel order:', error);
+            alert('فشل إلغاء الطلب');
+        }
+    };
+
+    const handleDeliverOrder = async (saleId: number) => {
+        if (!window.confirm('هل أنت متأكد من توصيل هذا الطلب؟')) return;
+        try {
+            await apiClient.post(`/pos/sales/${saleId}/deliver`);
+            fetchSales();
+        } catch (error) {
+            console.error('Failed to deliver order:', error);
+            alert('فشل توصيل الطلب');
+        }
+    };
+
+    const getStatusBadge = (sale: Sale) => {
+        if (sale.channel !== 'ONLINE_STORE') return null;
+        const status = sale.status || 'PENDING';
+        const config: Record<string, { label: string; bg: string; color: string }> = {
+            PENDING:   { label: 'قيد الانتظار', bg: '#fef3c7', color: '#b45309' },
+            CONFIRMED: { label: 'مؤكد',        bg: '#dbeafe', color: '#1d4ed8' },
+            SHIPPED:   { label: 'تم الشحن',    bg: '#ede9fe', color: '#6d28d9' },
+            DELIVERED: { label: 'تم التوصيل',  bg: '#dcfce7', color: '#16a34a' },
+            CANCELLED: { label: 'ملغي',        bg: '#fee2e2', color: '#dc2626' },
+        };
+        const c = config[status] || config.PENDING;
+        return (
+            <span style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '600', backgroundColor: c.bg, color: c.color }}>
+                {c.label}
+            </span>
+        );
     };
 
     const resetFilters = () => {
@@ -641,6 +686,7 @@ export default function Sales() {
                                 <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>الربح الصافي</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>الهامش %</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>القناة</th>
+                                <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>الحالة</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>المدفوع</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>بواسطة</th>
                                 <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>إجراءات</th>
@@ -651,13 +697,13 @@ export default function Sales() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={19} style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+                                    <td colSpan={21} style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
                                         جاري التحميل...
                                     </td>
                                 </tr>
                             ) : sales.length === 0 ? (
                                 <tr>
-                                    <td colSpan={19} style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+                                    <td colSpan={21} style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
                                         لا توجد مبيعات
                                     </td>
                                 </tr>
@@ -775,30 +821,73 @@ export default function Sales() {
                                             {sale.channelName || sale.channel || '-'}
                                         </td>
                                         <td style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb' }}>
+                                            {getStatusBadge(sale)}
+                                        </td>
+                                        <td style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb' }}>
                                             {sale.paymentMethod}
                                         </td>
                                         <td style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb' }}>
                                             {sale.user?.fullName || '-'}
                                         </td>
                                         <td style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb' }}>
-                                            <button
-                                                onClick={() => handleViewDetails(sale.id)}
-                                                style={{
-                                                    padding: '6px 12px',
-                                                    background: '#2563eb',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: '6px',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '4px',
-                                                    fontSize: '13px',
-                                                }}
-                                            >
-                                                <Eye size={14} />
-                                                عرض
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                                <button
+                                                    onClick={() => handleViewDetails(sale.id)}
+                                                    style={{
+                                                        padding: '6px 10px',
+                                                        background: '#2563eb',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        fontSize: '12px',
+                                                    }}
+                                                >
+                                                    <Eye size={13} />
+                                                    عرض
+                                                </button>
+                                                {sale.channel === 'ONLINE_STORE' && sale.status && sale.status !== 'DELIVERED' && sale.status !== 'CANCELLED' && (
+                                                    <button
+                                                        onClick={() => handleDeliverOrder(sale.id)}
+                                                        style={{
+                                                            padding: '6px 10px',
+                                                            background: '#16a34a',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            fontSize: '12px',
+                                                        }}
+                                                    >
+                                                        توصيل
+                                                    </button>
+                                                )}
+                                                {sale.channel === 'ONLINE_STORE' && sale.status && sale.status !== 'DELIVERED' && sale.status !== 'CANCELLED' && (
+                                                    <button
+                                                        onClick={() => handleCancelOrder(sale.id)}
+                                                        style={{
+                                                            padding: '6px 10px',
+                                                            background: '#dc2626',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            fontSize: '12px',
+                                                        }}
+                                                    >
+                                                        إلغاء
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

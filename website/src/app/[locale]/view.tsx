@@ -1,0 +1,527 @@
+"use client";
+
+import { useLocale } from "next-intl";
+import { Link } from "@/i18n/routing";
+import { store } from "@/data";
+import { useEffect, useRef, useState, useCallback } from "react";
+import Image from "next/image";
+import { ShoppingCart, Star, Check, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, Zap, Wrench, Shield, Truck, BadgePercent, HeadphonesIcon, Package, Bolt, Droplets, Factory, Settings, Toolbox, DollarSign } from "lucide-react";
+import { useCart } from "@/components/cart/cart-context";
+import type { MockProduct, MockCategory, MockBrand, MockStatistic, MockDiscountCard } from "@/data";
+
+/* ─── helpers ─── */
+function useReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.1 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return { ref, visible };
+}
+
+function Reveal({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const { ref, visible } = useReveal();
+  return (
+    <div ref={ref} className={className} style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(36px)", transition: `opacity 0.7s ease ${delay}ms, transform 0.7s ease ${delay}ms` }}>
+      {children}
+    </div>
+  );
+}
+
+/* ─── default hero slides (fallback) ─── */
+const defaultHeroSlides = [
+  { bg: "from-[#0f1923] via-[#1a2535] to-[#0f1923]", titleAr: "أدوات المحترفين", titleEn: "Professional Tools", subAr: "جودة لا تُضاهى · أسعار تنافسية · توصيل سريع", subEn: "Unmatched quality · Competitive prices · Fast delivery", accent: "#C0161B", tag: "500+ منتج", tagEn: "500+ Products", bgImg: "/assets/1.jpg" },
+  { bg: "from-[#1a0808] via-[#2a1010] to-[#1a0808]", titleAr: "خصومات حصرية", titleEn: "Exclusive Deals", subAr: "تخفيضات تصل إلى 30% على أفضل الماركات العالمية", subEn: "Up to 30% off on top global brands", accent: "#C0161B", tag: "عروض محدودة", tagEn: "Limited Offers", bgImg: "/assets/2.jpg" },
+  { bg: "from-[#0a1020] via-[#0f1830] to-[#0a1020]", titleAr: "ماركات عالمية", titleEn: "Global Brands", subAr: "بوش · ماكيتا · ديوالت · ستانلي وأكثر", subEn: "Bosch · Makita · DeWalt · Stanley & more", accent: "#C0161B", tag: "11+ ماركة", tagEn: "11+ Brands", bgImg: "/assets/3.jpg" },
+];
+
+/* ─── icon map ─── */
+const ICON_COMPONENT: Record<string, React.ReactNode> = {
+  Zap: <Zap className="size-7 text-white" />,
+  Wrench: <Wrench className="size-7 text-white" />,
+  Bolt: <Bolt className="size-7 text-white" />,
+  Droplets: <Droplets className="size-7 text-white" />,
+  Shield: <Shield className="size-7 text-white" />,
+  Factory: <Factory className="size-7 text-white" />,
+  Package: <Package className="size-7 text-white" />,
+  Settings: <Settings className="size-7 text-white" />,
+  Toolbox: <Toolbox className="size-7 text-white" />,
+  Star: <Star className="size-7 text-white" />,
+};
+
+function getCatIcon(cat: MockCategory): React.ReactNode {
+  const key = cat.icon ? cat.icon.charAt(0).toUpperCase() + cat.icon.slice(1) : "";
+  return ICON_COMPONENT[key] || <Package className="size-7 text-white" />;
+}
+
+/* ─── product card ─── */
+function ProductCard({ product, locale }: { product: MockProduct; locale: string }) {
+  const price = product.discountPrice ?? product.priceRetail;
+  const { addItem } = useCart();
+  const [added, setAdded] = useState(false);
+  const gradient = "from-gray-500 to-gray-600";
+  const pct = product.discountPrice ? Math.round((1 - product.discountPrice / product.priceRetail) * 100) : 0;
+
+  const handleAdd = (e: React.MouseEvent) => {
+    e.preventDefault();
+    addItem({ id: product.id, nameEn: product.nameEn, nameAr: product.nameAr, price, categoryId: product.categoryId, image: product.images?.[0] });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1500);
+  };
+
+  return (
+    <div className="product-card bg-card rounded-2xl border border-border overflow-hidden flex-shrink-0 w-52 sm:w-56 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+      <Link href={`/products/${product.code || product.id}`} className="block relative">
+        <div className="h-44 relative overflow-hidden">
+          {product.images?.[0] ? (
+            <Image src={product.images[0]} alt="" fill className="object-cover" sizes="224px" />
+          ) : null}
+          <div className={`absolute inset-0 bg-gradient-to-br ${gradient} ${product.images?.[0] ? "opacity-60" : ""}`} />
+          {!product.images?.[0] && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex size-20 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" className="size-10">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M21 15l-5-5L5 21" />
+                </svg>
+              </div>
+            </div>
+          )}
+          {pct > 0 && <span className="discount-badge">-{pct}%</span>}
+          {product.badge === "NEW" && !product.discountPrice && <span className="new-badge">{locale === "ar" ? "جديد" : "NEW"}</span>}
+        </div>
+      </Link>
+      <div className="p-3">
+        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">{product.brand}</p>
+            <Link href={`/products/${product.code || product.id}`}>
+          <h3 className="text-sm font-semibold line-clamp-2 mt-0.5 hover:text-primary transition-colors leading-snug">
+            {locale === "ar" ? product.nameAr : product.nameEn}
+          </h3>
+        </Link>
+        {product.rating > 0 && (
+          <div className="flex items-center gap-0.5 mt-1.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star key={i} className={`size-3 ${i < Math.floor(product.rating) ? "star-filled" : "star-empty"}`} />
+            ))}
+            <span className="text-[10px] text-muted-foreground ms-1">({product.rating})</span>
+          </div>
+        )}
+        <div className="flex items-baseline gap-1.5 mt-2">
+          <span className="text-base font-bold text-primary">{price} {locale === "ar" ? "ج.م" : "EGP"}</span>
+          {product.discountPrice && (
+            <span className="text-xs text-muted-foreground line-through">{product.priceRetail}</span>
+          )}
+        </div>
+        <button
+          onClick={handleAdd}
+          className={`add-btn mt-2 w-full rounded-full text-xs h-8 font-semibold flex items-center justify-center gap-1.5 transition-all ${added ? "bg-emerald-500 text-white" : "bg-primary text-white hover:bg-red-700"}`}
+        >
+          {added ? <><Check className="size-3.5" />{locale === "ar" ? "تمت الإضافة" : "Added"}</> : <><ShoppingCart className="size-3.5" />{locale === "ar" ? "أضف للسلة" : "Add to Cart"}</>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── section header ─── */
+function SectionTitle({ ar, en, link, locale }: { ar: string; en: string; link?: string; locale: string }) {
+  const ArrowIcon = locale === "ar" ? ArrowLeft : ArrowRight;
+  return (
+    <div className="flex items-end justify-between mb-6">
+      <div>
+        <h2 className="text-xl sm:text-2xl font-bold gold-underline">{locale === "ar" ? ar : en}</h2>
+      </div>
+      {link && (
+        <Link href={link} className="view-all-link">
+          {locale === "ar" ? "عرض الكل" : "View All"} <ArrowIcon className="size-3.5" />
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/* ─── horizontal scroller ─── */
+function HScroll({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const scroll = (dir: number) => ref.current?.scrollBy({ left: dir * 250, behavior: "smooth" });
+  return (
+    <div className="relative group/scroll">
+      <button onClick={() => scroll(-1)} className="absolute start-0 top-1/2 -translate-y-1/2 z-10 hidden group-hover/scroll:flex items-center justify-center size-9 rounded-full bg-white border border-border shadow-md hover:bg-primary hover:text-white hover:border-primary transition-all -translate-x-3">
+        <ChevronLeft className="size-4" />
+      </button>
+      <div ref={ref} className="scroll-row">{children}</div>
+      <button onClick={() => scroll(1)} className="absolute end-0 top-1/2 -translate-y-1/2 z-10 hidden group-hover/scroll:flex items-center justify-center size-9 rounded-full bg-white border border-border shadow-md hover:bg-primary hover:text-white hover:border-primary transition-all translate-x-3">
+        <ChevronRight className="size-4" />
+      </button>
+    </div>
+  );
+}
+
+/* ─── hero slider ─── */
+function HeroSlider({ slides, locale }: { slides: any[]; locale: string }) {
+  const [active, setActive] = useState(0);
+  const [animating, setAnimating] = useState(false);
+  const total = slides.length;
+  const ArrowPrev = locale === "ar" ? ChevronRight : ChevronLeft;
+  const ArrowNext = locale === "ar" ? ChevronLeft : ChevronRight;
+
+  const go = useCallback((idx: number) => {
+    if (animating) return;
+    setAnimating(true);
+    setTimeout(() => { setActive((idx + total) % total); setAnimating(false); }, 400);
+  }, [animating, total]);
+
+  useEffect(() => {
+    if (total === 0) return;
+    const t = setInterval(() => go(active + 1), 5000);
+    return () => clearInterval(t);
+  }, [active, go, total]);
+
+  if (total === 0) return null;
+  const slide = slides[active];
+
+  return (
+    <section className="relative overflow-hidden" style={{ minHeight: "420px" }}>
+      {/* Background image */}
+      <Image
+        src={slide.bgImg}
+        alt=""
+        fill
+        className="object-cover transition-all duration-700"
+        style={{ opacity: animating ? 0 : 1, transform: animating ? "scale(1.03)" : "scale(1)", transition: "opacity 0.5s ease, transform 0.5s ease" }}
+        priority
+        sizes="100vw"
+      />
+      {/* Gradient overlay for readability */}
+      <div
+        className={`absolute inset-0 bg-gradient-to-br ${slide.bg} transition-all duration-700`}
+        style={{ opacity: animating ? 0 : 0.75, transform: animating ? "scale(1.03)" : "scale(1)", transition: "opacity 0.5s ease, transform 0.5s ease" }}
+      />
+      {/* decorative orbs */}
+      <div className="absolute top-10 end-10 size-64 rounded-full opacity-10 animate-float" style={{ background: `radial-gradient(circle, ${slide.accent}, transparent)` }} />
+      <div className="absolute bottom-0 start-20 size-40 rounded-full opacity-10 animate-float-delayed" style={{ background: `radial-gradient(circle, ${slide.accent}, transparent)` }} />
+      <div className="absolute top-1/2 start-1/2 size-24 border border-white/10 rounded-2xl rotate-45 animate-pulse-slow" />
+
+      <div className="relative mx-auto max-w-7xl px-6 sm:px-10 lg:px-16 py-20 sm:py-28 flex items-center">
+        <div className="max-w-xl" style={{ opacity: animating ? 0 : 1, transform: animating ? "translateX(40px)" : "translateX(0)", transition: "opacity 0.45s ease, transform 0.45s ease" }}>
+          <span className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold mb-5 animate-badge-pop" style={{ background: slide.accent + "25", color: slide.accent, border: `1px solid ${slide.accent}40` }}>
+            ✦ {locale === "ar" ? slide.tag : slide.tagEn}
+          </span>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight mb-4">
+            {locale === "ar" ? slide.titleAr : slide.titleEn}
+          </h1>
+          <p className="text-white/70 text-base sm:text-lg leading-relaxed mb-8">
+            {locale === "ar" ? slide.subAr : slide.subEn}
+          </p>
+          <div className="flex gap-3 flex-wrap">
+            <Link href="/products" className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-bold shadow-lg transition-all hover:scale-105 animate-glow-pulse" style={{ background: slide.accent, color: "#fff" }}>
+              {locale === "ar" ? "تسوق الآن" : "Shop Now"}
+            </Link>
+            <Link href="/categories" className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-bold border border-white/20 text-white hover:bg-white/10 transition-all">
+              {locale === "ar" ? "تصفح الأقسام" : "Browse Categories"}
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* arrows */}
+      <button onClick={() => go(active - 1)} className="absolute start-4 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/25 transition-all backdrop-blur-sm">
+        <ArrowPrev className="size-4" />
+      </button>
+      <button onClick={() => go(active + 1)} className="absolute end-4 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/25 transition-all backdrop-blur-sm">
+        <ArrowNext className="size-4" />
+      </button>
+
+      {/* dots */}
+      <div className="absolute bottom-5 start-1/2 -translate-x-1/2 flex gap-2">
+        {slides.map((_, i) => (
+          <button key={i} onClick={() => go(i)} className="rounded-full transition-all" style={{ width: i === active ? 24 : 8, height: 8, background: i === active ? slide.accent : "rgba(255,255,255,0.35)" }} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ─── trust bar ─── */
+const TRUST_ICONS: Record<string, React.ComponentType<any>> = {
+  Truck, Shield, BadgePercent, HeadphonesIcon,
+  Zap, Wrench, Package, Bolt, Droplets, Factory, Settings, Toolbox, Star,
+  ShoppingCart, Check, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, DollarSign,
+};
+
+/* ─── main page ─── */
+export default function HomePage() {
+  const locale = useLocale();
+  const [cats, setCats] = useState<MockCategory[]>([]);
+  const [brands, setBrands] = useState<MockBrand[]>([]);
+  const [statistics, setStatistics] = useState<MockStatistic[]>([]);
+  const [discountCards, setDiscountCards] = useState<MockDiscountCard[]>([]);
+  const [bestSellers, setBestSellers] = useState<MockProduct[]>([]);
+  const [popular, setPopular] = useState<MockProduct[]>([]);
+  const [trustFeatures, setTrustFeatures] = useState<any[]>([]);
+  const [heroSlides, setHeroSlides] = useState<any[]>([]);
+  const [slideIndex, setSlideIndex] = useState(0);
+  const isRtl = locale === "ar";
+
+  useEffect(() => {
+    store.getCategories().then(setCats);
+    store.getTrustedBrands().then(setBrands);
+    store.getActiveStatistics().then(setStatistics);
+    store.getActiveDiscountCards().then(setDiscountCards);
+    store.getBestSellingProducts().then(setBestSellers);
+    store.getPopularProducts().then(setPopular);
+    store.getTrustFeatures().then(setTrustFeatures);
+    store.getActiveHeroSlides().then((slides) => {
+      setHeroSlides(slides.length > 0 ? slides.map((s: any) => ({ ...s, tag: s.tagAr || s.tagEn, bg: s.bgGradient })) : defaultHeroSlides);
+    });
+  }, []);
+
+  const activeDiscountCards = discountCards.filter(c => c.isActive !== false);
+  useEffect(() => {
+    if (activeDiscountCards.length <= 1) return;
+    const timer = setInterval(() => {
+      setSlideIndex(prev => (prev + 1) % activeDiscountCards.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [activeDiscountCards.length]);
+
+  return (
+    <div className="flex flex-col min-h-screen" dir={isRtl ? "rtl" : "ltr"}>
+
+      {/* HERO */}
+      <HeroSlider slides={heroSlides} locale={locale} />
+
+      {/* TRUST BAR */}
+      <section className="bg-white border-b border-border">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {trustFeatures.length === 0 ? (
+              <>
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
+                    <div className="size-11 rounded-xl bg-muted" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-4 w-24 rounded bg-muted" />
+                      <div className="h-3 w-32 rounded bg-muted" />
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : trustFeatures.map((item, i) => {
+              const Icon = TRUST_ICONS[item.icon] || Shield;
+              return (
+                <Reveal key={item.id} delay={i * 80} className="group flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                  <div className="flex size-11 items-center justify-center rounded-xl shrink-0 group-hover:scale-110 transition-transform duration-300" style={{ background: "rgba(192,22,27,0.10)" }}>
+                    <Icon className="size-5 group-hover:scale-110 transition-transform duration-300" style={{ color: "#C0161B" }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">{isRtl ? item.titleAr : item.titleEn}</p>
+                    <p className="text-xs text-muted-foreground">{isRtl ? item.subtitleAr : item.subtitleEn}</p>
+                  </div>
+                </Reveal>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* CATEGORIES */}
+      <section className="bg-background py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionTitle ar="تسوق من أهم الفئات" en="Shop by Category" link="/categories" locale={locale} />
+          </Reveal>
+          <Reveal delay={100}>
+            <div className="flex gap-6 overflow-x-auto pb-3 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+              {cats.length === 0 ? (
+                <div className="flex gap-4 text-sm text-muted-foreground py-4">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2 animate-pulse">
+                      <div className="size-20 sm:size-24 rounded-full bg-muted" />
+                      <div className="h-3 w-16 rounded bg-muted" />
+                    </div>
+                  ))}
+                </div>
+              ) : cats.map((cat, i) => (
+                <Link key={cat.id} href={`/categories/${cat.slug}`} className="category-circle flex-shrink-0 flex flex-col items-center gap-2 group" style={{ animationDelay: `${i * 60}ms` }}>
+                  <div className="circle-ring size-20 sm:size-24 rounded-full border-2 border-transparent p-1 transition-all duration-300 group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/20">
+                    <div className="size-full rounded-full flex items-center justify-center shadow-md" style={{ background: `linear-gradient(135deg, ${cat.color || "#6b7280"}, ${cat.color ? cat.color + "99" : "#9ca3af"})` }}>
+                      {getCatIcon(cat)}
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-center text-foreground group-hover:text-primary transition-colors">
+                    {isRtl ? cat.nameAr : cat.name}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">{cat.productCount} {isRtl ? "منتج" : "items"}</span>
+                </Link>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* BEST SELLERS */}
+      <section className="bg-muted/40 py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionTitle ar="الأكثر مبيعاً" en="Best Sellers" link="/products?sort=price_asc" locale={locale} />
+          </Reveal>
+          <Reveal delay={100}>
+            <HScroll>
+              {bestSellers.map((p) => <ProductCard key={p.id} product={p} locale={locale} />)}
+            </HScroll>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* PROMO BANNER / SLIDER */}
+      {activeDiscountCards.length > 0 && (() => {
+        const card = activeDiscountCards[slideIndex % activeDiscountCards.length];
+        if (!card) return null;
+
+        const goTo = (i: number) => setSlideIndex(i);
+        const prev = () => setSlideIndex(c => (c - 1 + activeDiscountCards.length) % activeDiscountCards.length);
+        const next = () => setSlideIndex(c => (c + 1) % activeDiscountCards.length);
+
+        return (
+          <section className="py-10 px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-7xl">
+              <Reveal>
+                <div className="relative overflow-hidden rounded-3xl animate-gradient-shift" style={{ backgroundColor: card.bgColor, backgroundSize: "200% 200%" }}>
+                  <Image src={card.bgImage || "/assets/discountCards/11.jpg"} alt="" fill className="object-cover opacity-40" sizes="1200px" priority />
+                  <div className="absolute inset-0 opacity-10">
+                    <div className="absolute top-4 end-4 size-48 rounded-full" style={{ background: "radial-gradient(circle, #C0161B, transparent)" }} />
+                    <div className="absolute bottom-0 start-0 size-32 rounded-full" style={{ background: "radial-gradient(circle, #fff, transparent)" }} />
+                  </div>
+                  <div className="relative px-8 py-12 sm:px-14 sm:py-14 flex flex-col sm:flex-row items-center justify-between gap-8">
+                    <div>
+                      <span className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold mb-4" style={{ background: "rgba(192,22,27,0.2)", color: "#e83030", border: "1px solid rgba(192,22,27,0.3)" }}>
+                        ✦ {isRtl ? card.badgeAr : card.badgeEn}
+                      </span>
+                      <h3 className="text-3xl sm:text-4xl font-black text-white mb-3">
+                        {isRtl ? card.titleAr : card.titleEn}
+                      </h3>
+                      <p className="text-white/65 text-sm max-w-md">
+                        {isRtl ? card.descAr : card.descEn}
+                      </p>
+                    </div>
+                    <Link href={card.linkUrl} className="shrink-0 inline-flex items-center gap-2 rounded-full px-8 py-4 font-bold text-sm shadow-2xl hover:scale-105 transition-all" style={{ background: "#C0161B", color: "#fff" }}>
+                      {isRtl ? `${card.linkLabelAr} ←` : `→ ${card.linkLabelEn}`}
+                    </Link>
+                  </div>
+                  {/* Navigation arrows */}
+                  {activeDiscountCards.length > 1 && (
+                    <>
+                      <button onClick={prev} className="absolute start-3 top-1/2 -translate-y-1/2 size-10 rounded-full bg-black/20 backdrop-blur-sm text-white hover:bg-black/40 transition-all flex items-center justify-center opacity-0 hover:opacity-100">
+                        <ChevronLeft className="size-5" />
+                      </button>
+                      <button onClick={next} className="absolute end-3 top-1/2 -translate-y-1/2 size-10 rounded-full bg-black/20 backdrop-blur-sm text-white hover:bg-black/40 transition-all flex items-center justify-center opacity-0 hover:opacity-100">
+                        <ChevronRight className="size-5" />
+                      </button>
+                    </>
+                  )}
+                  {/* Dots */}
+                  {activeDiscountCards.length > 1 && (
+                    <div className="absolute bottom-4 start-1/2 -translate-x-1/2 flex gap-2">
+                      {activeDiscountCards.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => goTo(i)}
+                          className={`size-2 rounded-full transition-all ${i === slideIndex ? "w-6 bg-white" : "bg-white/40 hover:bg-white/60"}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Reveal>
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* POPULAR PRODUCTS */}
+      <section className="bg-background py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionTitle ar="الأكثر شهرة" en="Popular Products" link="/products" locale={locale} />
+          </Reveal>
+          <Reveal delay={100}>
+            <HScroll>
+              {popular.map((p) => <ProductCard key={p.id} product={p} locale={locale} />)}
+            </HScroll>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* BRANDS MARQUEE */}
+      <section className="bg-muted/40 border-t border-border py-10 overflow-hidden">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-6">
+          <Reveal>
+            <SectionTitle ar="الماركات المعتمدة" en="Our Trusted Brands" locale={locale} />
+          </Reveal>
+        </div>
+        {brands.length > 0 && (
+          <div className="marquee-wrapper relative overflow-hidden">
+            <div className={`flex gap-5 ${isRtl ? "animate-marquee-rtl" : "animate-marquee"}`} style={{ width: "fit-content", "--marquee-repeat": Math.max(2, Math.ceil(8 / brands.length)) } as React.CSSProperties}>
+              {[...Array(Math.max(2, Math.ceil(8 / brands.length)))].map((_, copy) => (
+                <div key={copy} className="flex gap-5 shrink-0">
+                  {brands.map((b, i) => (
+                    <div key={`${b.id}-${i}-${copy}`} className="flex h-14 min-w-[120px] items-center justify-center rounded-2xl border border-border bg-card px-6 text-sm font-bold text-muted-foreground hover:border-primary hover:text-primary transition-all cursor-default shadow-sm">
+                      {b.name}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* STATS */}
+      {statistics.length > 0 && (
+        <section className="bg-white py-14">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+              {statistics.map((s, i) => (
+                <Reveal key={s.id} delay={i * 100}>
+                  <div className="p-6 rounded-2xl border border-border hover:border-primary hover:shadow-lg transition-all">
+                    <p className="text-3xl sm:text-4xl font-black gold-text">{s.value}</p>
+                    <p className="text-sm text-muted-foreground mt-1 font-medium">{isRtl ? s.labelAr : s.labelEn}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* CTA */}
+      <section className="py-16" style={{ background: "linear-gradient(135deg, #0f1923, #1a2535)" }}>
+        <div className="mx-auto max-w-3xl px-4 text-center">
+          <Reveal>
+            <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">
+              {isRtl ? "هل تبحث عن أداة معينة؟" : "Looking for a Specific Tool?"}
+            </h2>
+            <p className="text-white/60 mb-8 text-base">
+              {isRtl ? "تواصل معنا وسنوفر لك أفضل الحلول والمنتجات بأسعار تنافسية" : "Contact us and we'll find the best solutions at competitive prices"}
+            </p>
+            <div className="flex gap-4 justify-center flex-wrap">
+              <Link href="/products" className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-bold shadow-xl hover:scale-105 transition-all animate-glow-pulse" style={{ background: "#C0161B", color: "#fff" }}>
+                {isRtl ? "تصفح المنتجات" : "Browse Products"}
+              </Link>
+              <Link href="/categories" className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-bold border border-white/20 text-white hover:bg-white/10 transition-all">
+                {isRtl ? "جميع الأقسام" : "All Categories"}
+              </Link>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+    </div>
+  );
+}

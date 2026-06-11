@@ -3,38 +3,17 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const permissions = [
-    // Dashboard
-    { name: 'VIEW_DASHBOARD', description: 'Access to main dashboard' },
-
-    // Inventory
-    { name: 'VIEW_INVENTORY', description: 'View products, categories, stock' },
-    { name: 'MANAGE_INVENTORY', description: 'Create/Edit products, categories, adjust stock' },
-
-    // Sales (POS & Backoffice)
-    { name: 'VIEW_SALES', description: 'View sales history' },
-    { name: 'CREATE_SALES', description: 'Access POS and create sales' },
-    { name: 'MANAGE_RETURNS', description: 'Process sales returns' },
-    { name: 'VIEW_CUSTOMER_ACCOUNTS', description: 'View customer pending payments' },
-
-    // Purchasing
-    { name: 'VIEW_PURCHASING', description: 'View suppliers, GRNs, POs' },
-    { name: 'MANAGE_PURCHASING', description: 'Create POs, GRNs, Manage Suppliers' },
-
-    // People
-    { name: 'VIEW_PEOPLE', description: 'View customers and suppliers' },
-    { name: 'MANAGE_PEOPLE', description: 'Create/Edit customers and suppliers' },
-
-    // Admin
-    { name: 'VIEW_ADMIN', description: 'View users, reports, settings' },
-    { name: 'MANAGE_ADMIN', description: 'Manage users, roles, platform settings' },
+    { name: 'products:create', description: 'صلاحية إضافة منتجات جديدة' },
+    { name: 'products:edit', description: 'صلاحية تعديل المنتجات' },
+    { name: 'products:delete', description: 'صلاحية حذف المنتجات' },
 
     // Platform Access Permissions
-    { name: 'platform:normal', description: 'Access normal/offline sales channel' },
-    { name: 'platform:noon', description: 'Access Noon marketplace' },
-    { name: 'platform:amazon', description: 'Access Amazon marketplace' },
-    { name: 'platform:jumia', description: 'Access Jumia marketplace' },
-    { name: 'platform:social', description: 'Access social media sales' },
-    { name: 'platform:pogba', description: 'Access Pogba platform' },
+    { name: 'platform:normal', description: 'البيع العادي (بدون منصة)' },
+    { name: 'platform:noon', description: 'منصة نون' },
+    { name: 'platform:amazon', description: 'منصة أمازون' },
+    { name: 'platform:jumia', description: 'منصة جوميا' },
+    { name: 'platform:social', description: 'مبيعات السوشيال ميديا' },
+    { name: 'platform:pogba', description: 'منصة بوجبا' },
 ];
 
 async function main() {

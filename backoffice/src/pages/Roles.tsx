@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
 import { Plus, Edit, Trash, Shield, Check, Database } from 'lucide-react';
 
+const PERMISSION_LABELS: Record<string, { labelAr: string; descAr: string }> = {
+    'products:create': { labelAr: 'إضافة منتجات', descAr: 'صلاحية إضافة منتجات جديدة' },
+    'products:edit': { labelAr: 'تعديل المنتجات', descAr: 'صلاحية تعديل المنتجات' },
+    'products:delete': { labelAr: 'حذف المنتجات', descAr: 'صلاحية حذف المنتجات' },
+};
+
 interface Page {
     id: number;
     key: string;
@@ -22,6 +28,7 @@ export default function Roles() {
     const [roles, setRoles] = useState<any[]>([]);
     const [pages, setPages] = useState<Record<string, Page[]>>({});
     const [platformPermissions, setPlatformPermissions] = useState<Permission[]>([]);
+    const [extraPermissions, setExtraPermissions] = useState<Permission[]>([]);
     const [showModal, setShowModal] = useState(false);
     const [editingRole, setEditingRole] = useState<any>(null);
     const [formData, setFormData] = useState({
@@ -35,6 +42,7 @@ export default function Roles() {
         fetchRoles();
         fetchPages();
         fetchPlatformPermissions();
+        fetchExtraPermissions();
     }, []);
 
     const fetchRoles = async () => {
@@ -64,6 +72,16 @@ export default function Roles() {
         }
     };
 
+    const fetchExtraPermissions = async () => {
+        try {
+            const { data } = await apiClient.get('/roles/permissions');
+            const names = ['products:create', 'products:edit', 'products:delete'];
+            setExtraPermissions((data || []).filter((p: Permission) => names.includes(p.name)));
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
     const handleBackup = async () => {
         try {
             const confirmed = confirm('هل تريد إنشاء نسخة احتياطية من قاعدة البيانات؟');
@@ -84,15 +102,21 @@ export default function Roles() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const payload = {
+            name: formData.name,
+            description: formData.description,
+            pageIds: formData.pageIds,
+            platformPermissionIds: formData.platformPermissionIds
+        };
         try {
             if (editingRole) {
-                await apiClient.patch(`/roles/${editingRole.id}`, formData);
+                await apiClient.patch(`/roles/${editingRole.id}`, payload);
             } else {
-                await apiClient.post('/roles', formData);
+                await apiClient.post('/roles', payload);
             }
             setShowModal(false);
             setEditingRole(null);
-            setFormData({ name: '', description: '', pageIds: [], platformPermissionIds: [] });
+                            setFormData({ name: '', description: '', pageIds: [], platformPermissionIds: [] });
             fetchRoles();
         } catch (e: any) {
             alert(e.response?.data?.message || 'Failed to save role');
@@ -186,7 +210,7 @@ export default function Roles() {
                     <button
                         onClick={() => {
                             setEditingRole(null);
-                            setFormData({ name: '', description: '', pageIds: [], platformPermissionIds: [] });
+            setFormData({ name: '', description: '', pageIds: [], platformPermissionIds: [] });
                             setShowModal(true);
                         }}
                         style={{
@@ -250,19 +274,32 @@ export default function Roles() {
 
                         <div style={{ marginTop: '12px' }}>
                             <p style={{ fontSize: '13px', fontWeight: '600', color: '#64748b', marginBottom: '8px' }}>
-                                منصات البيع ({role.permissions?.length || 0})
+                                منصات البيع ({role.permissions?.filter((p: any) => p.permission.name.startsWith('platform:')).length || 0})
                             </p>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                {role.permissions?.slice(0, 3).map((p: any) => (
+                                {role.permissions?.filter((p: any) => p.permission.name.startsWith('platform:')).slice(0, 3).map((p: any) => (
                                     <span key={p.permission.id} style={{ background: '#fef3c7', color: '#ca8a04', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '500' }}>
                                         {p.permission.name.split(':')[1]?.toUpperCase()}
                                     </span>
                                 ))}
-                                {role.permissions?.length > 3 && (
+                                {role.permissions?.filter((p: any) => p.permission.name.startsWith('platform:')).length > 3 && (
                                     <span style={{ background: '#f3f4f6', color: '#6b7280', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '500' }}>
-                                        +{role.permissions.length - 3} أخرى
+                                        +{role.permissions?.filter((p: any) => p.permission.name.startsWith('platform:')).length - 3} أخرى
                                     </span>
                                 )}
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: '12px' }}>
+                            <p style={{ fontSize: '13px', fontWeight: '600', color: '#64748b', marginBottom: '8px' }}>
+                                صلاحيات المنتجات
+                            </p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {role.permissions?.filter((p: any) => ['products:create', 'products:edit', 'products:delete'].includes(p.permission.name)).map((p: any) => (
+                                    <span key={p.permission.id} style={{ background: '#ede9fe', color: '#7c3aed', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '500' }}>
+                                        {PERMISSION_LABELS[p.permission.name]?.labelAr || p.permission.name}
+                                    </span>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -392,6 +429,65 @@ export default function Roles() {
                                     </div>
                                 </div>
                             </div>
+
+
+
+                            {/* Extra Permissions */}
+                            {extraPermissions.length > 0 && (
+                                <div style={{ marginBottom: '24px' }}>
+                                    <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#1e293b' }}>
+                                        صلاحيات المنتجات
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {extraPermissions.map(perm => (
+                                            <div
+                                                key={perm.id}
+                                                onClick={() => {
+                                                    const current = formData.platformPermissionIds;
+                                                    if (current.includes(perm.id)) {
+                                                        setFormData({ ...formData, platformPermissionIds: current.filter(pid => pid !== perm.id) });
+                                                    } else {
+                                                        setFormData({ ...formData, platformPermissionIds: [...current, perm.id] });
+                                                    }
+                                                }}
+                                                style={{
+                                                    padding: '14px 16px',
+                                                    border: formData.platformPermissionIds.includes(perm.id) ? '2px solid #7c3aed' : '2px solid #e2e8f0',
+                                                    borderRadius: '10px',
+                                                    background: formData.platformPermissionIds.includes(perm.id) ? '#f5f3ff' : 'white',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '12px',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                <div style={{
+                                                    width: '22px',
+                                                    height: '22px',
+                                                    border: formData.platformPermissionIds.includes(perm.id) ? '2px solid #7c3aed' : '2px solid #cbd5e1',
+                                                    borderRadius: '4px',
+                                                    background: formData.platformPermissionIds.includes(perm.id) ? '#7c3aed' : 'white',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    {formData.platformPermissionIds.includes(perm.id) && <Check size={14} color="white" />}
+                                                </div>
+                                                <div>
+                                                    <span style={{ fontWeight: '600', fontSize: '14px', display: 'block', color: '#1e293b' }}>
+                                                        {PERMISSION_LABELS[perm.name]?.labelAr || perm.name}
+                                                    </span>
+                                                    <span style={{ fontSize: '12px', color: '#6b7280', display: 'block' }}>
+                                                        {PERMISSION_LABELS[perm.name]?.descAr || ''}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Actions */}
                             <div style={{ display: 'flex', gap: '12px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>

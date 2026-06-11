@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Save, Trash2, Plus } from 'lucide-react';
+import { Settings, Save, Trash2, Plus, MapPin, Edit, X, Search } from 'lucide-react';
 import apiClient from '../api/client';
 
 interface Platform {
@@ -8,8 +8,17 @@ interface Platform {
     name: string;
     taxRate: number;
     commission: number;
-    shippingFee: number; // ✅ NEW
+    shippingFee: number;
     active: boolean;
+}
+
+interface Zone {
+    id: number;
+    name: string;
+    nameAr: string;
+    fee: number;
+    active: boolean;
+    sortOrder: number;
 }
 
 function PlatformSettings() {
@@ -21,9 +30,17 @@ function PlatformSettings() {
         name: '',
         taxRate: 15,
         commission: 0,
-        shippingFee: 0, // ✅ NEW
+        shippingFee: 0,
         active: true,
     });
+
+    // Delivery zones state
+    const [zones, setZones] = useState<Zone[]>([]);
+    const [zonesLoading, setZonesLoading] = useState(false);
+    const [showZoneModal, setShowZoneModal] = useState(false);
+    const [editingZone, setEditingZone] = useState<Zone | null>(null);
+    const [zoneForm, setZoneForm] = useState({ name: '', nameAr: '', fee: 0, sortOrder: 99 });
+    const [zoneSearch, setZoneSearch] = useState('');
 
     useEffect(() => {
         fetchPlatforms();
@@ -211,6 +228,83 @@ function PlatformSettings() {
         }
     };
 
+
+    // ── Delivery Zones CRUD ──────────────────────────────────────
+    const fetchZones = async () => {
+        setZonesLoading(true);
+        try {
+            const response = await apiClient.get('/store/delivery-zones');
+            const data = response.data;
+            setZones(Array.isArray(data) ? data : data.data || []);
+        } catch (error: any) {
+            console.error('Error fetching zones:', error);
+        } finally {
+            setZonesLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchZones(); }, []);
+
+    const openAddZone = () => {
+        setEditingZone(null);
+        setZoneForm({ name: '', nameAr: '', fee: 0, sortOrder: 99 });
+        setShowZoneModal(true);
+    };
+
+    const openEditZone = (zone: Zone) => {
+        setEditingZone(zone);
+        setZoneForm({ name: zone.name, nameAr: zone.nameAr, fee: zone.fee, sortOrder: zone.sortOrder });
+        setShowZoneModal(true);
+    };
+
+    const saveZone = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const payload = { name: zoneForm.name, nameAr: zoneForm.nameAr, fee: Number(zoneForm.fee), sortOrder: Number(zoneForm.sortOrder) };
+            if (editingZone) {
+                await apiClient.patch(`/store/delivery-zones/${editingZone.id}`, payload);
+            } else {
+                await apiClient.post('/store/delivery-zones', payload);
+            }
+            setShowZoneModal(false);
+            setEditingZone(null);
+            setZoneForm({ name: '', nameAr: '', fee: 0, sortOrder: 99 });
+            await fetchZones();
+            setMessage(`✅ ${editingZone ? 'تم تحديث المنطقة' : 'تم إضافة المنطقة'} بنجاح`);
+            setTimeout(() => setMessage(''), 3000);
+        } catch (error: any) {
+            setMessage(`❌ ${error.response?.data?.message || 'فشل الحفظ'}`);
+        }
+    };
+
+    const deleteZone = async (id: number, nameAr: string) => {
+        if (!confirm(`هل أنت متأكد من حذف "${nameAr}"؟`)) return;
+        try {
+            await apiClient.delete(`/store/delivery-zones/${id}`);
+            await fetchZones();
+            setMessage(`✅ تم حذف المنطقة بنجاح`);
+            setTimeout(() => setMessage(''), 3000);
+        } catch (error: any) {
+            setMessage(`❌ ${error.response?.data?.message || 'فشل الحذف'}`);
+        }
+    };
+
+    const toggleZoneActive = async (zone: Zone) => {
+        try {
+            await apiClient.patch(`/store/delivery-zones/${zone.id}`, { active: !zone.active });
+            await fetchZones();
+            setMessage(`✅ تم ${zone.active ? 'إلغاء تفعيل' : 'تفعيل'} المنطقة بنجاح`);
+            setTimeout(() => setMessage(''), 3000);
+        } catch (error: any) {
+            setMessage(`❌ ${error.response?.data?.message || 'فشل التحديث'}`);
+        }
+    };
+
+    const filteredZones = zones.filter((z) => {
+        if (!zoneSearch) return true;
+        const q = zoneSearch.toLowerCase();
+        return z.name.toLowerCase().includes(q) || z.nameAr.includes(q);
+    });
 
     if (loading) {
         return (
@@ -710,6 +804,109 @@ function PlatformSettings() {
                 </table>
             </div>
 
+            {/* ── Delivery Zones Section ────────────────────────────────── */}
+            <div style={{ marginTop: '36px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '4px', height: '28px', background: '#6366f1', borderRadius: '2px' }} />
+                <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#1e293b', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <MapPin size={22} color="#6366f1" />
+                    مناطق التوصيل - المتجر الإلكتروني
+                </h3>
+                <div style={{ flex: 1 }} />
+                <button onClick={openAddZone}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>
+                    <Plus size={18} /> إضافة منطقة
+                </button>
+            </div>
+            <div style={{ marginBottom: '16px', color: '#64748b', fontSize: '14px' }}>
+                رسوم التوصيل لكل منطقة يتم تطبيقها على طلبات المتجر الإلكتروني. إذا كانت الرسوم 0، سيتم عرض "مجاني" للعميل.
+            </div>
+
+            {/* Zone Search */}
+            <div style={{ marginBottom: '16px' }}>
+                <div style={{ position: 'relative', maxWidth: '360px' }}>
+                    <Search size={16} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+                    <input type="text" value={zoneSearch} onChange={(e) => setZoneSearch(e.target.value)}
+                        placeholder="بحث عن منطقة..."
+                        style={{ width: '100%', padding: '10px 38px 10px 14px', border: '2px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', textAlign: 'right', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+            </div>
+
+            {/* Zone Table */}
+            {zonesLoading && zones.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>⏳ جاري تحميل المناطق...</div>
+            ) : filteredZones.length === 0 ? (
+                <div style={{ background: 'white', borderRadius: '12px', padding: '40px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>📍</div>
+                    <h3 style={{ fontSize: '18px', color: '#1e293b', margin: '0 0 6px' }}>{zoneSearch ? 'لا توجد نتائج' : 'لا توجد مناطق توصيل'}</h3>
+                    <p style={{ color: '#64748b', margin: '0 0 20px', fontSize: '14px' }}>
+                        {zoneSearch ? '' : 'أضف مناطق التوصيل ورسومها للمتجر الإلكتروني'}
+                    </p>
+                    {!zoneSearch && (
+                        <button onClick={openAddZone}
+                            style={{ padding: '10px 24px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>
+                            إضافة منطقة الآن
+                        </button>
+                    )}
+                </div>
+            ) : (
+                <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                                <th style={{ padding: '14px', textAlign: 'right', fontWeight: 600, color: '#475569', fontSize: '13px' }}>الاسم (عربي)</th>
+                                <th style={{ padding: '14px', textAlign: 'right', fontWeight: 600, color: '#475569', fontSize: '13px' }}>الاسم (إنجليزي)</th>
+                                <th style={{ padding: '14px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '13px' }}>رسوم التوصيل</th>
+                                <th style={{ padding: '14px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '13px' }}>الترتيب</th>
+                                <th style={{ padding: '14px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '13px' }}>الحالة</th>
+                                <th style={{ padding: '14px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '13px', width: '200px' }}>الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredZones.map((zone, index) => (
+                                <tr key={zone.id} style={{ borderBottom: index < filteredZones.length - 1 ? '1px solid #e2e8f0' : 'none' }}>
+                                    <td style={{ padding: '14px', fontWeight: 500, color: '#1e293b' }}>{zone.nameAr}</td>
+                                    <td style={{ padding: '14px', color: '#64748b' }}>{zone.name}</td>
+                                    <td style={{ padding: '14px', textAlign: 'center' }}>
+                                        <span style={{
+                                            padding: '4px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: 600,
+                                            background: zone.fee === 0 ? '#d1fae5' : '#fef3c7',
+                                            color: zone.fee === 0 ? '#065f46' : '#b45309',
+                                        }}>
+                                            {zone.fee === 0 ? 'مجاني' : `${zone.fee} ج.م`}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: '14px', textAlign: 'center', color: '#64748b' }}>{zone.sortOrder}</td>
+                                    <td style={{ padding: '14px', textAlign: 'center' }}>
+                                        <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+                                            <input type="checkbox" checked={zone.active} onChange={() => toggleZoneActive(zone)} style={{ display: 'none' }} />
+                                            <span style={{
+                                                padding: '5px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, userSelect: 'none',
+                                                background: zone.active ? '#d1fae5' : '#fee2e2',
+                                                color: zone.active ? '#065f46' : '#991b1b',
+                                            }}>
+                                                {zone.active ? '✅ نشط' : '❌ غير نشط'}
+                                            </span>
+                                        </label>
+                                    </td>
+                                    <td style={{ padding: '14px', textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                            <button onClick={() => openEditZone(zone)}
+                                                style={{ padding: '7px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 600 }}>
+                                                <Edit size={14} /> تعديل
+                                            </button>
+                                            <button onClick={() => deleteZone(zone.id, zone.nameAr)}
+                                                style={{ padding: '7px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 600 }}>
+                                                <Trash2 size={14} /> حذف
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
             {/* Note */}
             <div
                 style={{
@@ -872,6 +1069,74 @@ function PlatformSettings() {
                                 إضافة
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Add / Edit Zone Modal ───────────────────────────── */}
+            {showZoneModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+                }} onClick={() => setShowZoneModal(false)}>
+                    <div style={{
+                        background: 'white', borderRadius: '12px', padding: '28px',
+                        width: '90%', maxWidth: '500px',
+                    }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                            <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#1e293b', margin: 0 }}>
+                                {editingZone ? 'تعديل منطقة التوصيل' : 'إضافة منطقة توصيل جديدة'}
+                            </h3>
+                            <button onClick={() => setShowZoneModal(false)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <form onSubmit={saveZone}>
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>
+                                    الاسم (عربي) <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <input type="text" value={zoneForm.nameAr} onChange={(e) => setZoneForm({ ...zoneForm, nameAr: e.target.value })}
+                                    placeholder="مثال: وسط البلد"
+                                    style={{ width: '100%', padding: '10px 14px', border: '2px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', textAlign: 'right', outline: 'none', boxSizing: 'border-box' }}
+                                    required />
+                            </div>
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>
+                                    الاسم (إنجليزي) <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <input type="text" value={zoneForm.name} onChange={(e) => setZoneForm({ ...zoneForm, name: e.target.value })}
+                                    placeholder="Example: Downtown"
+                                    style={{ width: '100%', padding: '10px 14px', border: '2px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', textAlign: 'left', direction: 'ltr', outline: 'none', boxSizing: 'border-box' }}
+                                    required />
+                            </div>
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>
+                                    رسوم التوصيل (ج.م) <span style={{ color: '#ef4444' }}>*</span>
+                                </label>
+                                <input type="number" value={zoneForm.fee} onChange={(e) => setZoneForm({ ...zoneForm, fee: Number(e.target.value) })}
+                                    min="0" step="0.01"
+                                    style={{ width: '100%', padding: '10px 14px', border: '2px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', textAlign: 'right', outline: 'none', boxSizing: 'border-box' }}
+                                    required />
+                            </div>
+                            <div style={{ marginBottom: '24px' }}>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>ترتيب الظهور</label>
+                                <input type="number" value={zoneForm.sortOrder} onChange={(e) => setZoneForm({ ...zoneForm, sortOrder: Number(e.target.value) })}
+                                    min="0"
+                                    style={{ width: '100%', padding: '10px 14px', border: '2px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', textAlign: 'right', outline: 'none', boxSizing: 'border-box' }} />
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                                <button type="button" onClick={() => setShowZoneModal(false)}
+                                    style={{ padding: '10px 24px', background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>
+                                    إلغاء
+                                </button>
+                                <button type="submit"
+                                    style={{ padding: '10px 24px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Save size={16} /> {editingZone ? 'حفظ التعديلات' : 'إضافة'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

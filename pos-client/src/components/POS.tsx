@@ -49,6 +49,7 @@ interface Product {
     category?: Category | null;
     itemType?: { subcategory?: { category?: Category | null } | null } | null;
     supplier?: { id: number; name: string } | null;
+    images?: string[];
 }
 
 interface Customer {
@@ -209,7 +210,7 @@ function POS() {
 
     const loadSuppliers = async () => {
         try {
-            const data = await apiClient.get('/purchasing/suppliers?active=true&take=200');
+            const data = await apiClient.get('/purchasing/suppliers?active=true&take=500');
             setSuppliers(data?.data || data || []);
         } catch (e) {
             console.error('Failed to load suppliers', e);
@@ -893,7 +894,7 @@ function POS() {
                 {/* Header */}
                 <div className="pos-header">
                     <div className="header-top">
-                        <h1><ShoppingCart size={32} /> نقطة البيع</h1>
+                        <h1><img src="/pos-client/CT Logo.png" alt="City Tools" style={{ height: '32px', objectFit: 'contain' }} /> نقطة البيع</h1>
                         <div className="user-info">
                             <div className="user-tag"><User size={14} /> {user.fullName}</div>
                             <div style={{ fontSize: '12px', color: '#10b981', fontWeight: 600 }}>
@@ -1111,13 +1112,43 @@ function POS() {
                                             transition: 'all 0.2s'
                                         }}
                                     >
+                                        {/* Product Image */}
+                                        <div style={{
+                                            width: '64px', height: '64px', borderRadius: '10px',
+                                            overflow: 'hidden', flexShrink: 0,
+                                            background: 'linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        }}>
+                                            {item.images?.[0] ? (
+                                                <img
+                                                    src={item.images[0]}
+                                                    alt=""
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                        const el = (e.target as HTMLImageElement).parentElement;
+                                                        if (el) el.style.background = 'linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%)';
+                                                    }}
+                                                />
+                                            ) : (
+                                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                                    <circle cx="8.5" cy="8.5" r="1.5" />
+                                                    <polyline points="21 15 16 10 5 21" />
+                                                </svg>
+                                            )}
+                                        </div>
+
                                         {/* Product Info */}
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <strong style={{ display: 'block', marginBottom: '6px', fontSize: '15px', color: '#1e293b' }}>
                                                 {item.nameAr || item.nameEn}
                                             </strong>
+                                            <small style={{ color: '#64748b', display: 'block', marginBottom: '4px', fontSize: '12px', fontFamily: 'monospace', fontWeight: 700 }}>
+                                                {item.code ? `${item.code} - ` : ''}{item.barcode}
+                                            </small>
                                             <small style={{ color: '#64748b', display: 'block', marginBottom: '4px', fontSize: '13px' }}>
-                                                {item.barcode} • {item.price.toFixed(2)} ر.س
+                                                {item.price.toFixed(2)} ر.س
                                             </small>
                                             {getCategoryName(item) && (
                                                 <div style={{ marginBottom: '8px' }}>
@@ -1794,6 +1825,33 @@ function POS() {
                                             e.currentTarget.style.background = 'white';
                                         }}
                                     >
+                                        <div style={{
+                                            width: '60px', height: '60px', borderRadius: '10px',
+                                            overflow: 'hidden', flexShrink: 0, marginLeft: '12px',
+                                            background: 'linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        }}>
+                                            {p.images?.[0] ? (
+                                                <img
+                                                    src={p.images[0]}
+                                                    alt=""
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                        const el = (e.target as HTMLImageElement).parentElement;
+                                                        if (el) {
+                                                            el.style.background = 'linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%)';
+                                                        }
+                                                    }}
+                                                />
+                                            ) : (
+                                                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                                    <circle cx="8.5" cy="8.5" r="1.5" />
+                                                    <polyline points="21 15 16 10 5 21" />
+                                                </svg>
+                                            )}
+                                        </div>
                                         <div style={{ flex: 1, textAlign: 'right' }}>
                                             <div style={{ fontWeight: 600, marginBottom: '4px' }}>{p.nameAr || p.nameEn}</div>
                                             <div style={{ fontSize: '14px', color: '#10b981', marginBottom: '4px' }}>
@@ -2198,10 +2256,37 @@ function POS() {
                                                 </div>
                                             )}
 
+                                            {/* Image */}
+                                            <div style={{
+                                                width: '100%', height: '120px', borderRadius: '10px',
+                                                overflow: 'hidden', marginBottom: '8px', marginTop: '20px',
+                                                background: 'linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            }}>
+                                                {product.images?.[0] ? (
+                                                    <img
+                                                        src={product.images[0]}
+                                                        alt=""
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).style.display = 'none';
+                                                            const el = (e.target as HTMLImageElement).parentElement;
+                                                            if (el) el.style.background = 'linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%)';
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                                        <circle cx="8.5" cy="8.5" r="1.5" />
+                                                        <polyline points="21 15 16 10 5 21" />
+                                                    </svg>
+                                                )}
+                                            </div>
+
                                             {/* Name */}
                                             <div style={{
                                                 fontSize: '13px', fontWeight: '700', color: '#1e293b',
-                                                marginBottom: '6px', marginTop: '20px',
+                                                marginBottom: '6px', marginTop: '0',
                                                 overflow: 'hidden', textAlign: 'center',
                                                 display: '-webkit-box', WebkitLineClamp: 2,
                                                 WebkitBoxOrient: 'vertical', lineHeight: '1.3', direction: 'rtl'
@@ -2628,6 +2713,13 @@ function POS() {
                                                 {line.priceType === 'CUSTOM' && (
                                                     <span style={{ fontSize: '9px', marginRight: '4px' }}> *</span>
                                                 )}
+                                            </div>
+                                            <div style={{ fontSize: '8px', color: '#000', fontWeight: 'bold' }}>
+                                                {line.code || ''}
+                                                {line.code && line.barcode ? ' - ' : ''}
+                                                {line.barcode || ''}
+                                                {line.code && getCategoryName(line) ? ' | ' : ''}
+                                                {getCategoryName(line) || ''}
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: 600 }}>
                                                 <span style={{ color: '#000' }}>

@@ -82,6 +82,11 @@ export class StockController {
     );
   }
 
+  @Get('reserved')
+  getReservedStock() {
+    return this.stockService.getReservedStock();
+  }
+
   @Get('movements')
   getMovementHistory(
     @Query('productId') productId?: string,

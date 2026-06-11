@@ -20,6 +20,7 @@ export default function ReceiveGoods() {
 
     // Header Data
     const [supplierId, setSupplierId] = useState('');
+    const [supplierSearch, setSupplierSearch] = useState('');
     const [paymentTerm, setPaymentTerm] = useState('CASH');
     const [taxRate, setTaxRate] = useState(14);
     const [notes, setNotes] = useState('');
@@ -56,7 +57,7 @@ export default function ReceiveGoods() {
     const fetchInitialData = async () => {
         try {
             const [supRes, prodRes] = await Promise.all([
-                apiClient.get('/purchasing/suppliers?active=true'),
+                apiClient.get('/purchasing/suppliers?active=true&take=500'),
                 apiClient.get('/products?active=true&take=2000') // Load more products
             ]);
             setSuppliers(supRes.data.data);
@@ -185,6 +186,21 @@ export default function ReceiveGoods() {
                             <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px', color: '#334155' }}>
                                 المورد <span style={{ color: '#ef4444' }}>*</span>
                             </label>
+                            <input
+                                type="text"
+                                placeholder="بحث عن مورد بالاسم أو الهاتف..."
+                                value={supplierSearch}
+                                onChange={e => setSupplierSearch(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 14px',
+                                    border: '2px solid #e2e8f0',
+                                    borderRadius: '10px',
+                                    fontSize: '14px',
+                                    marginBottom: '8px',
+                                    outline: 'none',
+                                }}
+                            />
                             <select
                                 style={{
                                     width: '100%',
@@ -202,9 +218,19 @@ export default function ReceiveGoods() {
                                 onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
                             >
                                 <option value="">اختر المورد...</option>
-                                {suppliers.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name} {s.phone && `- ${s.phone}`}</option>
-                                ))}
+                                {suppliers
+                                    .filter(s => {
+                                        if (!supplierSearch.trim()) return true;
+                                        const term = supplierSearch.trim().toLowerCase();
+                                        return (
+                                            s.name?.toLowerCase().includes(term) ||
+                                            s.phone?.includes(supplierSearch.trim()) ||
+                                            s.contact?.toLowerCase().includes(term)
+                                        );
+                                    })
+                                    .map(s => (
+                                        <option key={s.id} value={s.id}>{s.name} {s.phone && `- ${s.phone}`}</option>
+                                    ))}
                             </select>
                         </div>
 

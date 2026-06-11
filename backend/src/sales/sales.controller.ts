@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Query,
@@ -42,6 +43,22 @@ export class SalesController {
   @Post('sales/:id/deliver')
   deliverSale(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     return this.salesService.deliverSale(id, req.user.userId);
+  }
+
+  // ✅ NEW: Update order status (PENDING → CONFIRMED → SHIPPED → DELIVERED)
+  @Patch('sales/:id/status')
+  updateOrderStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('status') status: string,
+    @Request() req: any,
+  ) {
+    return this.salesService.updateOrderStatus(id, status, req.user.userId);
+  }
+
+  // ✅ NEW: Cancel order endpoint
+  @Post('sales/:id/cancel')
+  cancelSale(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.salesService.cancelSale(id, req.user.userId);
   }
 
   // ✅ NEW: Get customer pending payments
