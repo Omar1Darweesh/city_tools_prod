@@ -62,7 +62,13 @@ export default function ProductImageUpload({ value, onChange, locale }: Props) {
       body.append("file", file);
       body.append("folder", "products");
       const res = await fetch("/upload", { method: "POST", body });
-      const json = await res.json();
+      const text = await res.text();
+      let json: { url?: string; error?: string };
+      try {
+        json = JSON.parse(text);
+      } catch {
+        throw new Error(isRtl ? "فشل رفع الصورة — استجابة غير صالحة من الخادم" : "Upload failed — invalid server response");
+      }
       if (!res.ok || !json.url) {
         throw new Error(json.error || (isRtl ? "فشل رفع الصورة" : "Upload failed"));
       }
