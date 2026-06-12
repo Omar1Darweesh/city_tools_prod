@@ -5,7 +5,7 @@ import { Link } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import Image from "next/image";
+import ProductImage from "@/components/products/product-image";
 import {
   Minus, Plus, ShoppingCart, Star, Package,
   Check, ChevronLeft, ChevronRight,
@@ -233,7 +233,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         <div className="space-y-3">
           <div className="aspect-square rounded-2xl bg-muted relative overflow-hidden border">
             {currentImg ? (
-              <Image src={currentImg} alt="" fill className="object-cover" sizes="600px" priority />
+              <ProductImage src={currentImg} alt="" fill className="object-cover" sizes="600px" priority />
             ) : (
               <div className="flex size-full items-center justify-center">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"

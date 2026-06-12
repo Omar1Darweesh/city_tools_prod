@@ -4,6 +4,7 @@ import { useLocale } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { store } from "@/data";
 import { useEffect, useRef, useState, useCallback } from "react";
+import ProductImage from "@/components/products/product-image";
 import Image from "next/image";
 import { ShoppingCart, Star, Check, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, Zap, Wrench, Shield, Truck, BadgePercent, HeadphonesIcon, Package, Bolt, Droplets, Factory, Settings, Toolbox, DollarSign } from "lucide-react";
 import { useCart } from "@/components/cart/cart-context";
@@ -78,7 +79,7 @@ function ProductCard({ product, locale }: { product: MockProduct; locale: string
       <Link href={`/products/${product.code || product.id}`} className="block relative">
         <div className="h-44 relative overflow-hidden">
           {product.images?.[0] ? (
-            <Image src={product.images[0]} alt="" fill className="object-cover" sizes="224px" />
+            <ProductImage src={product.images[0]} alt="" fill className="object-cover" sizes="224px" />
           ) : null}
           <div className={`absolute inset-0 bg-gradient-to-br ${gradient} ${product.images?.[0] ? "opacity-60" : ""}`} />
           {!product.images?.[0] && (

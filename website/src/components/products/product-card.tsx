@@ -5,7 +5,7 @@ import { Link } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/components/cart/cart-context";
-import Image from "next/image";
+import ProductImage from "@/components/products/product-image";
 import { ShoppingCart, Star, Check } from "lucide-react";
 import { useState } from "react";
 
@@ -34,7 +34,7 @@ export function ProductCard({ product, locale }: { product: MockProduct; locale:
       <Link href={`/products/${product.code || product.id}`} className="block">
         <div className="aspect-[3/2] relative overflow-hidden">
           {product.images?.[0] ? (
-            <Image src={product.images[0]} alt="" fill className="object-cover" sizes="150px" />
+            <ProductImage src={product.images[0]} alt="" fill className="object-cover" sizes="150px" />
           ) : null}
           <div className={`absolute inset-0 bg-gradient-to-br ${gradient} ${product.images?.[0] ? "opacity-60" : ""}`} />
           {!product.images?.[0] && (

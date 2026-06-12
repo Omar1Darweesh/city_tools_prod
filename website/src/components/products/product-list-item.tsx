@@ -4,7 +4,7 @@ import type { MockProduct } from "@/data";
 import { Link } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/components/cart/cart-context";
-import Image from "next/image";
+import ProductImage from "@/components/products/product-image";
 import { ShoppingCart, Star, Check } from "lucide-react";
 import { useState } from "react";
 
@@ -32,7 +32,7 @@ export function ProductListItem({ product, locale }: { product: MockProduct; loc
       <Link href={`/products/${product.code || product.id}`} className="shrink-0">
         <div className="size-28 rounded-xl relative overflow-hidden">
           {product.images?.[0] ? (
-            <Image src={product.images[0]} alt="" fill className="object-cover" sizes="112px" />
+            <ProductImage src={product.images[0]} alt="" fill className="object-cover" sizes="112px" />
           ) : null}
           <div className={`absolute inset-0 bg-gradient-to-br ${gradient} ${product.images?.[0] ? "opacity-60" : ""}`} />
           {!product.images?.[0] && (
