@@ -69,7 +69,15 @@ export default function NewProductPage() {
     setError("");
     setSaving(true);
     try {
-      const { stock: _s, inStock: _is, ...restForm } = form;
+      const imageList = form.images
+        ? form.images.split("||").map(s => s.trim()).filter(Boolean)
+        : [];
+      if (imageList.some(u => u.startsWith("data:"))) {
+        setError(isRtl ? "يرجى إعادة رفع الصور — الصور المضمنة لا يمكن حفظها" : "Please re-upload images — embedded images cannot be saved");
+        return;
+      }
+
+      const { stock: _s, inStock: _is, subcategoryId: _sub, ...restForm } = form;
       const payload = {
         ...restForm,
         priceRetail: Number(form.priceRetail),
@@ -79,12 +87,11 @@ export default function NewProductPage() {
         barcode: form.barcode || form.code,
         rating: Number(form.rating),
         categoryId: Number(form.categoryId),
-        subcategoryId: form.subcategoryId ? Number(form.subcategoryId) : null,
         itemTypeId: form.itemTypeId ? Number(form.itemTypeId) : null,
         minQty: Number(form.minQty),
         initialStock: Number(form.stock) || 0,
         badge: form.badge || null,
-        images: form.images ? form.images.split("||").map(s => s.trim()).filter(Boolean) : [],
+        images: imageList,
       };
       await adminApi.createProduct(payload);
       router.push("/admin/products");

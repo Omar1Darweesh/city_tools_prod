@@ -977,7 +977,9 @@ export class ProductsService {
       updated,
       existingProduct,
       1,
-    );
+    ).catch((err) => {
+      console.warn('Product audit log failed (product still updated):', err?.message || err);
+    });
 
     return updated;
   }

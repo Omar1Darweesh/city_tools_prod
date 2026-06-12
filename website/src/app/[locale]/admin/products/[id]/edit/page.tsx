@@ -23,6 +23,8 @@ export default function EditProductPage() {
   const isRtl = locale === "ar";
 
   const initialized = useRef(false);
+  const prevCategoryId = useRef<string | null>(null);
+  const prevSubcategoryId = useRef<string | null>(null);
 
   const [categories, setCategories] = useState<any[]>([]);
   const [subcategories, setSubcategories] = useState<any[]>([]);
@@ -78,8 +80,10 @@ export default function EditProductPage() {
           images: Array.isArray(p.images) ? p.images.join("||") : p.images || "",
         });
         if (p.categoryId) {
+          prevCategoryId.current = String(p.categoryId);
           adminApi.getSubcategories(p.categoryId).then(res => setSubcategories(res.data || [])).catch(() => {});
           if (p.subcategoryId) {
+            prevSubcategoryId.current = String(p.subcategoryId);
             adminApi.getItemTypes(p.subcategoryId).then(res => setItemTypes(res.data || [])).catch(() => {});
           }
         }
@@ -91,7 +95,11 @@ export default function EditProductPage() {
   useEffect(() => {
     if (!initialized.current) return;
     const cid = form.categoryId;
+    if (prevCategoryId.current === cid) return;
+    prevCategoryId.current = cid;
+    prevSubcategoryId.current = null;
     setSubcategories([]);
+    setItemTypes([]);
     setForm(f => ({ ...f, subcategoryId: "", itemTypeId: "" }));
     if (!cid) return;
     adminApi.getSubcategories(Number(cid))
@@ -102,6 +110,8 @@ export default function EditProductPage() {
   useEffect(() => {
     if (!initialized.current) return;
     const scid = form.subcategoryId;
+    if (prevSubcategoryId.current === scid) return;
+    prevSubcategoryId.current = scid;
     setItemTypes([]);
     setForm(f => ({ ...f, itemTypeId: "" }));
     if (!scid) return;
@@ -117,7 +127,15 @@ export default function EditProductPage() {
     setError("");
     setSaving(true);
     try {
-      const { stock: _stock, inStock: _inStock, ...restForm } = form;
+      const imageList = form.images
+        ? form.images.split("||").map(s => s.trim()).filter(Boolean)
+        : [];
+      if (imageList.some(u => u.startsWith("data:"))) {
+        setError(isRtl ? "يرجى إعادة رفع الصور — الصور المضمنة لا يمكن حفظها" : "Please re-upload images — embedded images cannot be saved");
+        return;
+      }
+
+      const { stock: _stock, inStock: _inStock, subcategoryId: _sub, ...restForm } = form;
       const payload = {
         ...restForm,
         priceRetail: Number(form.priceRetail),
@@ -127,11 +145,10 @@ export default function EditProductPage() {
         barcode: form.barcode || form.code,
         rating: Number(form.rating),
         categoryId: Number(form.categoryId),
-        subcategoryId: form.subcategoryId ? Number(form.subcategoryId) : null,
         itemTypeId: form.itemTypeId ? Number(form.itemTypeId) : null,
         minQty: Number(form.minQty),
         badge: form.badge || null,
-        images: form.images ? form.images.split("||").map(s => s.trim()).filter(Boolean) : [],
+        images: imageList,
       };
       await adminApi.updateProduct(Number(params.id), payload);
       router.push("/admin/products");

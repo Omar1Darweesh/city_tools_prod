@@ -44,7 +44,6 @@ export class DeliveryZonesService {
 
     if (sets.length === 0) return this.findOne(id);
 
-    sets.push(`updated_at = NOW()`);
     values.push(id);
     await this.prisma.$executeRawUnsafe(
       `UPDATE delivery_zones SET ${sets.join(', ')} WHERE id = $${idx}`,

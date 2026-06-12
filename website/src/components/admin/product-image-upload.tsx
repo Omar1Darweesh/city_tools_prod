@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ImageUp, Link, X } from "lucide-react";
+import { ImageUp, Link, Loader2, X } from "lucide-react";
 
 interface Props {
   value: string;
@@ -13,6 +13,8 @@ export default function ProductImageUpload({ value, onChange, locale }: Props) {
   const isRtl = locale === "ar";
   const fileRef = useRef<HTMLInputElement>(null);
   const [urlInput, setUrlInput] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
 
   const parseImages = (v: string): string[] => {
     if (!v) return [];
@@ -25,8 +27,13 @@ export default function ProductImageUpload({ value, onChange, locale }: Props) {
   const images: string[] = parseImages(value);
 
   const addImage = (url: string) => {
+    if (url.startsWith("data:")) {
+      setError(isRtl ? "يرجى رفع الصورة مرة أخرى — لا يتم حفظ الصور المضمنة" : "Please upload again — embedded images cannot be saved");
+      return;
+    }
     const next = images.length > 0 ? [...images, url] : [url];
     onChange(next.join("||"));
+    setError("");
   };
 
   const removeImage = (index: number) => {
@@ -34,34 +41,57 @@ export default function ProductImageUpload({ value, onChange, locale }: Props) {
     onChange(next.join("||"));
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        addImage(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
     e.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError(isRtl ? "الملف يجب أن يكون صورة" : "File must be an image");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError(isRtl ? "حجم الصورة يجب أن يكون 5 ميجابايت أو أقل" : "Image must be 5 MB or smaller");
+      return;
+    }
+
+    setUploading(true);
+    setError("");
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("folder", "products");
+      const res = await fetch("/api/upload", { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok || !json.url) {
+        throw new Error(json.error || (isRtl ? "فشل رفع الصورة" : "Upload failed"));
+      }
+      addImage(json.url);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : (isRtl ? "فشل رفع الصورة" : "Upload failed"));
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleUrlAdd = () => {
     const trimmed = urlInput.trim();
     if (!trimmed) return;
+    if (trimmed.startsWith("data:")) {
+      setError(isRtl ? "لا يمكن استخدام صورة مضمنة — استخدم رابطاً أو ارفع ملفاً" : "Embedded images are not supported — use a URL or upload a file");
+      return;
+    }
     addImage(trimmed);
     setUrlInput("");
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-      {/* Previews */}
       {images.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
           {images.map((url, i) => (
             <div
-              key={i}
+              key={`${url}-${i}`}
               style={{
                 position: "relative",
                 width: 80,
@@ -108,11 +138,11 @@ export default function ProductImageUpload({ value, onChange, locale }: Props) {
         </div>
       )}
 
-      {/* Upload & URL row */}
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
+          disabled={uploading}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -122,21 +152,23 @@ export default function ProductImageUpload({ value, onChange, locale }: Props) {
             border: "1.5px dashed var(--border)",
             background: "var(--background)",
             color: "var(--muted-foreground)",
-            cursor: "pointer",
+            cursor: uploading ? "wait" : "pointer",
             fontSize: "0.8rem",
             fontWeight: 600,
             whiteSpace: "nowrap",
+            opacity: uploading ? 0.7 : 1,
           }}
         >
-          <ImageUp size={14} />
-          {isRtl ? "رفع صورة" : "Upload Image"}
+          {uploading ? <Loader2 size={14} className="animate-spin" /> : <ImageUp size={14} />}
+          {uploading ? (isRtl ? "جاري الرفع..." : "Uploading...") : (isRtl ? "رفع صورة" : "Upload Image")}
         </button>
         <input
           ref={fileRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/gif"
           onChange={handleFileUpload}
           style={{ display: "none" }}
+          disabled={uploading}
         />
         <div style={{ display: "flex", flex: 1, gap: "0.375rem", minWidth: 200 }}>
           <input
@@ -146,11 +178,12 @@ export default function ProductImageUpload({ value, onChange, locale }: Props) {
             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleUrlAdd())}
             placeholder={isRtl ? "أو أدخل رابط الصورة" : "Or paste image URL"}
             style={{ flex: 1, minWidth: 0 }}
+            disabled={uploading}
           />
           <button
             type="button"
             onClick={handleUrlAdd}
-            disabled={!urlInput.trim()}
+            disabled={!urlInput.trim() || uploading}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -161,10 +194,10 @@ export default function ProductImageUpload({ value, onChange, locale }: Props) {
               border: "1.5px solid var(--border)",
               background: "var(--background)",
               color: urlInput.trim() ? "var(--foreground)" : "var(--muted-foreground)",
-              cursor: urlInput.trim() ? "pointer" : "default",
+              cursor: urlInput.trim() && !uploading ? "pointer" : "default",
               fontSize: "0.8rem",
               fontWeight: 600,
-              opacity: urlInput.trim() ? 1 : 0.5,
+              opacity: urlInput.trim() && !uploading ? 1 : 0.5,
             }}
           >
             <Link size={14} />
@@ -173,10 +206,14 @@ export default function ProductImageUpload({ value, onChange, locale }: Props) {
         </div>
       </div>
 
+      {error && (
+        <p style={{ fontSize: "0.75rem", color: "#ef4444", margin: 0 }}>{error}</p>
+      )}
+
       <p style={{ fontSize: "0.75rem", color: "var(--muted-foreground)", margin: 0 }}>
         {isRtl
-          ? "يمكنك رفع صورة أو إدخال رابط. سيتم حفظ جميع الصور كروابط مفصولة بفواصل."
-          : "You can upload an image or paste a URL. All images are stored as comma-separated links."}
+          ? "ارفع صورة (حتى 5 ميجابايت) أو أدخل رابطاً. يُحفظ رابط الصورة فقط — وليس الملف نفسه داخل النموذج."
+          : "Upload an image (max 5 MB) or paste a URL. Only the image link is saved — not the file embedded in the form."}
       </p>
     </div>
   );
