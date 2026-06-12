@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
     const safeExt = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext) ? ext : "jpg";
     const prefix = folder === "products" ? "product" : "hero";
     const filename = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${safeExt}`;
-    const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
+    const publicRoot = process.env.UPLOAD_PUBLIC_ROOT || path.join(process.cwd(), "public");
+    const uploadDir = path.join(publicRoot, "uploads", folder);
     const filepath = path.join(uploadDir, filename);
 
     await mkdir(uploadDir, { recursive: true });

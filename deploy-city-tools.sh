@@ -32,7 +32,7 @@ SERVER_IP="76.13.11.228"
 DB_NAME="citytools_city_tools"
 DB_USER="citytools_app"
 BACKEND_PORT=3021
-WEBSITE_PORT=3010
+WEBSITE_PORT=3012
 
 PM2_BACKEND="citytools-backend-city-tools"
 PM2_WEBSITE="citytools-website-city-tools"
@@ -49,7 +49,7 @@ PROTECTED_NGINX_SITES=(
   "citytools.lamarpos.cloud"
   "default"
 )
-PROTECTED_PORTS=(3020 8091 5000 80 443)
+PROTECTED_PORTS=(3020 3010 8091 5000 80 443)
 NGINX_HASH_SNAPSHOT="/tmp/city-tools-nginx-protect.sha256"
 PM2_SNAPSHOT="/tmp/city-tools-pm2-before.txt"
 
@@ -114,13 +114,13 @@ check_disk_space() {
 
 check_protected_ports() {
     local port
-    for port in 3020 8091; do
+    for port in 3020 3010 8091; do
         if ss -tlnp 2>/dev/null | grep -q ":${port} "; then
             echo "Protected client port $port is in use (expected for live projects) — will NOT use it."
         fi
     done
-    if [ "$BACKEND_PORT" = "3020" ] || [ "$WEBSITE_PORT" = "8091" ]; then
-        echo "ERROR: city-tools ports must not overlap client ports 3020/8091."
+    if [ "$BACKEND_PORT" = "3020" ] || [ "$WEBSITE_PORT" = "8091" ] || [ "$WEBSITE_PORT" = "3010" ]; then
+        echo "ERROR: city-tools ports must not overlap client ports 3020/3010/8091."
         exit 1
     fi
 }
@@ -333,7 +333,7 @@ JWT_EXPIRES_IN="7h"
 REFRESH_TOKEN_EXPIRES_IN="7d"
 FRONTEND_URL=https://$DOMAIN
 
-DATABASE_URL="postgresql://$DB_USER:$DB_PASS_ENCODED@localhost:5432/$DB_NAME?schema=public"
+DATABASE_URL="postgresql://$DB_USER:$DB_PASS_ENCODED@localhost:5432/$DB_NAME?schema=public&connection_limit=3"
 
 PGHOST=localhost
 PGUSER=$DB_USER
@@ -404,6 +404,9 @@ module.exports = {
       name: '$PM2_BACKEND',
       script: '$MAIN_JS',
       cwd: '$APP_DIR/backend',
+      max_restarts: 5,
+      min_uptime: '10s',
+      restart_delay: 10000,
       env: { NODE_ENV: 'production' }
     },
     {
@@ -414,6 +417,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: '$WEBSITE_PORT',
+        UPLOAD_PUBLIC_ROOT: '$WEBSITE_DIR/public',
         NEXT_PUBLIC_API_URL: '$API_URL',
         NEXT_PUBLIC_SITE_URL: '$STORE_PUBLIC_URL'
       }
@@ -451,6 +455,13 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    location /uploads/ {
+        alias $WEBSITE_DIR/public/uploads/;
+        expires 30d;
+        add_header Cache-Control "public";
+        access_log off;
     }
 
     location = /backoffice {

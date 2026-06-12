@@ -5,6 +5,10 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   images: {
+    localPatterns: [
+      { pathname: "/uploads/**" },
+      { pathname: "/assets/**" },
+    ],
     remotePatterns: [
       {
         protocol: "http",
@@ -18,6 +22,11 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "picsum.photos",
+      },
+      {
+        protocol: "https",
+        hostname: "city-tools.lamarpos.cloud",
+        pathname: "/uploads/**",
       },
     ],
   },
