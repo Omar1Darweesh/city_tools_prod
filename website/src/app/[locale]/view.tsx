@@ -40,6 +40,19 @@ const defaultHeroSlides = [
   { bg: "from-[#0a1020] via-[#0f1830] to-[#0a1020]", titleAr: "ماركات عالمية", titleEn: "Global Brands", subAr: "بوش · ماكيتا · ديوالت · ستانلي وأكثر", subEn: "Bosch · Makita · DeWalt · Stanley & more", accent: "#C0161B", tag: "11+ ماركة", tagEn: "11+ Brands", bgImg: "/assets/3.jpg" },
 ];
 
+const HERO_HEIGHT_CLASS = "h-[440px] sm:h-[500px] lg:h-[540px]";
+
+function mapHeroSlide(s: Record<string, unknown>) {
+  return {
+    ...s,
+    tag: (s.tagAr as string) || (s.tag as string) || (s.tagEn as string) || "",
+    tagEn: (s.tagEn as string) || (s.tag as string) || "",
+    bg: (s.bgGradient as string) || (s.bg as string) || "from-[#0f1923] via-[#1a2535] to-[#0f1923]",
+    bgImg: (s.bgImg as string) || "/assets/1.jpg",
+    accent: (s.accent as string) || "#C0161B",
+  };
+}
+
 /* ─── icon map ─── */
 const ICON_COMPONENT: Record<string, React.ReactNode> = {
   Zap: <Zap className="size-7 text-white" />,
@@ -172,7 +185,7 @@ function HeroSlider({ slides, locale }: { slides: any[]; locale: string }) {
   const ArrowNext = locale === "ar" ? ChevronLeft : ChevronRight;
 
   const go = useCallback((idx: number) => {
-    if (animating) return;
+    if (animating || total === 0) return;
     setAnimating(true);
     setTimeout(() => { setActive((idx + total) % total); setAnimating(false); }, 400);
   }, [animating, total]);
@@ -183,40 +196,71 @@ function HeroSlider({ slides, locale }: { slides: any[]; locale: string }) {
     return () => clearInterval(t);
   }, [active, go, total]);
 
-  if (total === 0) return null;
+  useEffect(() => {
+    slides.forEach((s) => {
+      const src = s.bgImg as string | undefined;
+      if (src) {
+        const img = new window.Image();
+        img.src = src;
+      }
+    });
+  }, [slides]);
+
+  if (total === 0) {
+    return <section className={`relative w-full overflow-hidden bg-muted animate-pulse ${HERO_HEIGHT_CLASS}`} aria-hidden />;
+  }
+
   const slide = slides[active];
+  const bgUnoptimized = typeof slide.bgImg === "string" && slide.bgImg.startsWith("/uploads/");
 
   return (
-    <section className="relative overflow-hidden" style={{ minHeight: "420px" }}>
-      {/* Background image */}
-      <Image
-        src={slide.bgImg}
-        alt=""
-        fill
-        className="object-cover transition-all duration-700"
-        style={{ opacity: animating ? 0 : 1, transform: animating ? "scale(1.03)" : "scale(1)", transition: "opacity 0.5s ease, transform 0.5s ease" }}
-        priority
-        sizes="100vw"
-      />
-      {/* Gradient overlay for readability */}
-      <div
-        className={`absolute inset-0 bg-gradient-to-br ${slide.bg} transition-all duration-700`}
-        style={{ opacity: animating ? 0 : 0.75, transform: animating ? "scale(1.03)" : "scale(1)", transition: "opacity 0.5s ease, transform 0.5s ease" }}
-      />
-      {/* decorative orbs */}
-      <div className="absolute top-10 end-10 size-64 rounded-full opacity-10 animate-float" style={{ background: `radial-gradient(circle, ${slide.accent}, transparent)` }} />
-      <div className="absolute bottom-0 start-20 size-40 rounded-full opacity-10 animate-float-delayed" style={{ background: `radial-gradient(circle, ${slide.accent}, transparent)` }} />
-      <div className="absolute top-1/2 start-1/2 size-24 border border-white/10 rounded-2xl rotate-45 animate-pulse-slow" />
+    <section className={`relative w-full overflow-hidden ${HERO_HEIGHT_CLASS}`} aria-label="Hero">
+      {/* Background — fixed to hero bounds so slide changes never resize the section */}
+      <div className="absolute inset-0">
+        <Image
+          src={slide.bgImg}
+          alt=""
+          fill
+          unoptimized={bgUnoptimized}
+          className="object-cover object-center"
+          style={{
+            opacity: animating ? 0 : 1,
+            transform: animating ? "scale(1.03)" : "scale(1)",
+            transition: "opacity 0.5s ease, transform 0.5s ease",
+          }}
+          priority
+          sizes="100vw"
+        />
+        <div
+          className={`absolute inset-0 bg-gradient-to-br ${slide.bg}`}
+          style={{
+            opacity: animating ? 0 : 0.75,
+            transform: animating ? "scale(1.03)" : "scale(1)",
+            transition: "opacity 0.5s ease, transform 0.5s ease",
+          }}
+        />
+        <div className="absolute top-10 end-10 size-64 rounded-full opacity-10 animate-float pointer-events-none" style={{ background: `radial-gradient(circle, ${slide.accent}, transparent)` }} />
+        <div className="absolute bottom-0 start-20 size-40 rounded-full opacity-10 animate-float-delayed pointer-events-none" style={{ background: `radial-gradient(circle, ${slide.accent}, transparent)` }} />
+        <div className="absolute top-1/2 start-1/2 size-24 border border-white/10 rounded-2xl rotate-45 animate-pulse-slow pointer-events-none" />
+      </div>
 
-      <div className="relative mx-auto max-w-7xl px-6 sm:px-10 lg:px-16 py-20 sm:py-28 flex items-center">
-        <div className="max-w-xl" style={{ opacity: animating ? 0 : 1, transform: animating ? "translateX(40px)" : "translateX(0)", transition: "opacity 0.45s ease, transform 0.45s ease" }}>
-          <span className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold mb-5 animate-badge-pop" style={{ background: slide.accent + "25", color: slide.accent, border: `1px solid ${slide.accent}40` }}>
+      {/* Content — fixed vertical space so text length does not change hero height */}
+      <div className="relative z-10 h-full mx-auto max-w-7xl px-6 sm:px-10 lg:px-16 flex items-center">
+        <div
+          className="max-w-xl w-full min-h-[240px] sm:min-h-[260px] flex flex-col justify-center"
+          style={{
+            opacity: animating ? 0 : 1,
+            transform: animating ? "translateX(40px)" : "translateX(0)",
+            transition: "opacity 0.45s ease, transform 0.45s ease",
+          }}
+        >
+          <span className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold mb-5 animate-badge-pop w-fit" style={{ background: slide.accent + "25", color: slide.accent, border: `1px solid ${slide.accent}40` }}>
             ✦ {locale === "ar" ? slide.tag : slide.tagEn}
           </span>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight mb-4">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight mb-4 line-clamp-3">
             {locale === "ar" ? slide.titleAr : slide.titleEn}
           </h1>
-          <p className="text-white/70 text-base sm:text-lg leading-relaxed mb-8">
+          <p className="text-white/70 text-base sm:text-lg leading-relaxed mb-8 line-clamp-2">
             {locale === "ar" ? slide.subAr : slide.subEn}
           </p>
           <div className="flex gap-3 flex-wrap">
@@ -230,20 +274,21 @@ function HeroSlider({ slides, locale }: { slides: any[]; locale: string }) {
         </div>
       </div>
 
-      {/* arrows */}
-      <button onClick={() => go(active - 1)} className="absolute start-4 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/25 transition-all backdrop-blur-sm">
-        <ArrowPrev className="size-4" />
-      </button>
-      <button onClick={() => go(active + 1)} className="absolute end-4 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/25 transition-all backdrop-blur-sm">
-        <ArrowNext className="size-4" />
-      </button>
-
-      {/* dots */}
-      <div className="absolute bottom-5 start-1/2 -translate-x-1/2 flex gap-2">
-        {slides.map((_, i) => (
-          <button key={i} onClick={() => go(i)} className="rounded-full transition-all" style={{ width: i === active ? 24 : 8, height: 8, background: i === active ? slide.accent : "rgba(255,255,255,0.35)" }} />
-        ))}
-      </div>
+      {total > 1 && (
+        <>
+          <button type="button" onClick={() => go(active - 1)} className="absolute z-20 start-4 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/25 transition-all backdrop-blur-sm" aria-label="Previous slide">
+            <ArrowPrev className="size-4" />
+          </button>
+          <button type="button" onClick={() => go(active + 1)} className="absolute z-20 end-4 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/25 transition-all backdrop-blur-sm" aria-label="Next slide">
+            <ArrowNext className="size-4" />
+          </button>
+          <div className="absolute z-20 bottom-5 start-1/2 -translate-x-1/2 flex gap-2">
+            {slides.map((_, i) => (
+              <button key={i} type="button" onClick={() => go(i)} aria-label={`Slide ${i + 1}`} className="rounded-full transition-all" style={{ width: i === active ? 24 : 8, height: 8, background: i === active ? slide.accent : "rgba(255,255,255,0.35)" }} />
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -265,7 +310,7 @@ export default function HomePage() {
   const [bestSellers, setBestSellers] = useState<MockProduct[]>([]);
   const [popular, setPopular] = useState<MockProduct[]>([]);
   const [trustFeatures, setTrustFeatures] = useState<any[]>([]);
-  const [heroSlides, setHeroSlides] = useState<any[]>([]);
+  const [heroSlides, setHeroSlides] = useState<any[]>(() => defaultHeroSlides.map(mapHeroSlide));
   const [slideIndex, setSlideIndex] = useState(0);
   const isRtl = locale === "ar";
 
@@ -278,7 +323,9 @@ export default function HomePage() {
     store.getPopularProducts().then(setPopular);
     store.getTrustFeatures().then(setTrustFeatures);
     store.getActiveHeroSlides().then((slides) => {
-      setHeroSlides(slides.length > 0 ? slides.map((s: any) => ({ ...s, tag: s.tagAr || s.tagEn, bg: s.bgGradient })) : defaultHeroSlides);
+      if (slides.length > 0) {
+        setHeroSlides(slides.map(mapHeroSlide));
+      }
     });
   }, []);
 
