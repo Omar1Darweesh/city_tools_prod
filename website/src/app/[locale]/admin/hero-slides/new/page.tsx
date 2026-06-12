@@ -37,7 +37,7 @@ export default function NewHeroSlidePage() {
     try {
       const body = new FormData();
       body.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body });
+      const res = await fetch("/upload", { method: "POST", body });
       const json = await res.json();
       if (json.url) set("bgImg", json.url);
     } catch {}

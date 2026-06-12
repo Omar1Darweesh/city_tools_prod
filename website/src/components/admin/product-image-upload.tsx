@@ -61,7 +61,7 @@ export default function ProductImageUpload({ value, onChange, locale }: Props) {
       const body = new FormData();
       body.append("file", file);
       body.append("folder", "products");
-      const res = await fetch("/api/upload", { method: "POST", body });
+      const res = await fetch("/upload", { method: "POST", body });
       const json = await res.json();
       if (!res.ok || !json.url) {
         throw new Error(json.error || (isRtl ? "فشل رفع الصورة" : "Upload failed"));
