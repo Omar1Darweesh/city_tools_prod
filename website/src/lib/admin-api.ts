@@ -437,7 +437,7 @@ export const adminApi = {
   getWebStoreSettings: () =>
     authFetch("/settings/platforms/ONLINE_STORE"),
 
-  updateWebStoreSettings: (data: { taxRate: number; shippingFee: number; active?: boolean; showRatings?: boolean }) =>
+  updateWebStoreSettings: (data: { taxRate: number; shippingFee: number; active?: boolean; showRatings?: boolean; showDefectiveCategory?: boolean }) =>
     authFetch("/settings/platforms/ONLINE_STORE", {
       method: "PUT",
       body: JSON.stringify({ ...data, commission: 0 }),

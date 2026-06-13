@@ -43,6 +43,10 @@ export class CreatePlatformDto {
   @IsBoolean()
   @IsOptional()
   showRatings?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  showDefectiveCategory?: boolean;
 }
 
 export class UpdatePlatformDto {
@@ -74,4 +78,8 @@ export class UpdatePlatformDto {
   @IsBoolean()
   @IsOptional()
   showRatings?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  showDefectiveCategory?: boolean;
 }

@@ -136,30 +136,78 @@ export class StoreService {
     }
   }
 
-  async getFeatured() {
-    const [products, showR] = await Promise.all([
-      this.prisma.product.findMany({
-        where: { active: true, isPopular: true },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-        include: { category: true },
+  private async getDefectiveCategoryVisibility() {
+    const [settings, defectiveCategory] = await Promise.all([
+      this.platformSettings.getPlatform('ONLINE_STORE'),
+      this.prisma.category.findFirst({
+        where: {
+          OR: [
+            { name: { equals: 'Defective', mode: 'insensitive' } },
+            { nameAr: 'تلافيات' },
+          ],
+        },
+        select: { id: true },
       }),
-      this.shouldShowRatings(),
     ]);
+
+    return {
+      show: settings?.showDefectiveCategory ?? false,
+      categoryId: defectiveCategory?.id ?? null,
+    };
+  }
+
+  private isDefectiveCategory(category: { id?: number; name?: string; nameAr?: string | null }) {
+    if (!category) return false;
+    const name = category.name?.toLowerCase() ?? '';
+    return name === 'defective' || category.nameAr === 'تلافيات';
+  }
+
+  private applyDefectiveProductFilter(
+    where: Prisma.ProductWhereInput,
+    visibility: { show: boolean; categoryId: number | null },
+  ): Prisma.ProductWhereInput {
+    if (visibility.show || !visibility.categoryId) return where;
+
+    if (where.categoryId === visibility.categoryId) {
+      return { ...where, id: { in: [] } };
+    }
+
+    if (where.categoryId !== undefined) {
+      return where;
+    }
+
+    return {
+      ...where,
+      categoryId: { not: visibility.categoryId },
+    };
+  }
+
+  async getFeatured() {
+    const [showR, visibility] = await Promise.all([
+      this.shouldShowRatings(),
+      this.getDefectiveCategoryVisibility(),
+    ]);
+    const products = await this.prisma.product.findMany({
+      where: this.applyDefectiveProductFilter({ active: true, isPopular: true }, visibility),
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: { category: true },
+    });
     const withStock = await this.attachStock(products);
     return { data: withStock.map((p) => mapProduct(p, showR)), success: true, total: withStock.length, page: 1, limit: 50, totalPages: 1 };
   }
 
   async getBestSelling() {
-    const [products, showR] = await Promise.all([
-      this.prisma.product.findMany({
-        where: { active: true, isBestSale: true },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-        include: { category: true },
-      }),
+    const [showR, visibility] = await Promise.all([
       this.shouldShowRatings(),
+      this.getDefectiveCategoryVisibility(),
     ]);
+    const products = await this.prisma.product.findMany({
+      where: this.applyDefectiveProductFilter({ active: true, isBestSale: true }, visibility),
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: { category: true },
+    });
     const withStock = await this.attachStock(products);
     return { data: withStock.map((p) => mapProduct(p, showR)), success: true, total: withStock.length, page: 1, limit: 50, totalPages: 1 };
   }
@@ -170,6 +218,12 @@ export class StoreService {
 
   async getProducts(params: { page?: number; limit?: number; categoryId?: number; subcategoryId?: number; itemTypeId?: number; search?: string; sort?: string; isPopular?: boolean; isBestSale?: boolean; discounted?: boolean; badge?: string; brand?: string }) {
     const { page = 1, limit = 50, categoryId, subcategoryId, itemTypeId, search, sort, isPopular, isBestSale, discounted, badge, brand } = params;
+    const visibility = await this.getDefectiveCategoryVisibility();
+
+    if (!visibility.show && visibility.categoryId && categoryId === visibility.categoryId) {
+      return { data: [], total: 0, page, limit, totalPages: 0 };
+    }
+
     const where: Prisma.ProductWhereInput = { active: true };
 
     if (categoryId) {
@@ -219,15 +273,17 @@ export class StoreService {
     else if (sort === 'name_asc') orderBy = { nameEn: 'asc' };
     else if (sort === 'name_desc') orderBy = { nameEn: 'desc' };
 
+    const filteredWhere = this.applyDefectiveProductFilter(where, visibility);
+
     const [data, total, showR] = await Promise.all([
       this.prisma.product.findMany({
-        where,
+        where: filteredWhere,
         orderBy,
         skip: (page - 1) * limit,
         take: limit,
         include: { category: true },
       }),
-      this.prisma.product.count({ where }),
+      this.prisma.product.count({ where: filteredWhere }),
       this.shouldShowRatings(),
     ]);
 
@@ -267,6 +323,15 @@ export class StoreService {
       throw new NotFoundException('Product not found');
     }
 
+    const visibility = await this.getDefectiveCategoryVisibility();
+    if (
+      !visibility.show &&
+      visibility.categoryId &&
+      product.categoryId === visibility.categoryId
+    ) {
+      throw new NotFoundException('Product not found');
+    }
+
     const [stock, showR] = await Promise.all([
       this.getCurrentStock(product.id),
       this.shouldShowRatings(),
@@ -275,22 +340,32 @@ export class StoreService {
   }
 
   async getCategories() {
+    const visibility = await this.getDefectiveCategoryVisibility();
     const cats = await this.prisma.category.findMany({
       where: { active: true },
     });
+    const visibleCats = !visibility.show && visibility.categoryId
+      ? cats.filter((c) => c.id !== visibility.categoryId)
+      : cats;
     const activeCounts = await this.prisma.product.groupBy({
       by: ['categoryId'],
-      where: { active: true },
+      where: {
+        active: true,
+        ...(!visibility.show && visibility.categoryId
+          ? { categoryId: { not: visibility.categoryId } }
+          : {}),
+      },
       _count: { id: true },
     });
     const countMap = new Map(activeCounts.map(c => [c.categoryId, c._count.id]));
     return {
-      data: cats.map(c => mapCategory({ ...c, _count: { products: countMap.get(c.id) ?? 0 } })),
+      data: visibleCats.map(c => mapCategory({ ...c, _count: { products: countMap.get(c.id) ?? 0 } })),
       success: true,
     };
   }
 
   async getCategory(slug: string) {
+    const visibility = await this.getDefectiveCategoryVisibility();
     const id = parseInt(slug, 10);
     let cat;
 
@@ -311,6 +386,14 @@ export class StoreService {
     }
 
     if (!cat) return { data: null, success: false };
+
+    if (
+      !visibility.show &&
+      (cat.id === visibility.categoryId || this.isDefectiveCategory(cat))
+    ) {
+      return { data: null, success: false };
+    }
+
     const activeCount = await this.prisma.product.count({
       where: { categoryId: cat.id, active: true },
     });

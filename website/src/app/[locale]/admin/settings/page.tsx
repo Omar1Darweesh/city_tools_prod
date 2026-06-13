@@ -3,7 +3,7 @@
 import { useLocale } from "next-intl";
 import { useEffect, useState } from "react";
 import { Link } from "@/i18n/routing";
-import { Settings, Globe, MapPin, Percent, Save, Loader2, CheckCircle, ExternalLink, Star } from "lucide-react";
+import { Settings, Globe, MapPin, Percent, Save, Loader2, CheckCircle, ExternalLink, Star, PackageX } from "lucide-react";
 import { adminApi } from "@/lib/admin-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ export default function AdminSettingsPage() {
   const [taxRate, setTaxRate] = useState("15");
   const [shippingFee, setShippingFee] = useState("0");
   const [showRatings, setShowRatings] = useState(true);
+  const [showDefectiveCategory, setShowDefectiveCategory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -28,6 +29,7 @@ export default function AdminSettingsPage() {
           setTaxRate(String(res.taxRate ?? 15));
           setShippingFee(String(res.shippingFee ?? 0));
           setShowRatings(res.showRatings ?? true);
+          setShowDefectiveCategory(res.showDefectiveCategory ?? false);
         }
       })
       .catch(() => {})
@@ -43,6 +45,7 @@ export default function AdminSettingsPage() {
         shippingFee: Number(shippingFee) || 0,
         active: true,
         showRatings,
+        showDefectiveCategory,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -64,7 +67,7 @@ export default function AdminSettingsPage() {
             {isRtl ? "إعدادات المتجر الإلكتروني" : "Web Store Settings"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {isRtl ? "تخصيص الضريبة ورسوم الشحن وعرض التقييمات" : "Configure tax, shipping fees, and ratings display"}
+            {isRtl ? "تخصيص الضريبة ورسوم الشحن وعرض التقييمات وقسم التلافيات" : "Configure tax, shipping fees, ratings, and defective category visibility"}
           </p>
         </div>
       </div>
@@ -160,6 +163,46 @@ export default function AdminSettingsPage() {
                     <span
                       className={`pointer-events-none block size-5 rounded-full bg-white shadow-lg ring-0 transition-transform ${
                         showRatings ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <PackageX className="size-4" />
+                {isRtl ? "قسم التلافيات" : "Defective Category"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">
+                    {isRtl ? "عرض قسم التلافيات في الموقع" : "Show Defective category on website"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {isRtl
+                      ? "عند الإيقاف، لن يظهر قسم التلافيات أو منتجاته للزوار في المتجر الإلكتروني"
+                      : "When off, the Defective category and its products are hidden from the online store"}
+                  </p>
+                </div>
+                <div dir="ltr">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showDefectiveCategory}
+                    onClick={() => setShowDefectiveCategory(!showDefectiveCategory)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                      showDefectiveCategory ? "bg-primary" : "bg-input"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none block size-5 rounded-full bg-white shadow-lg ring-0 transition-transform ${
+                        showDefectiveCategory ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>

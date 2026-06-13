@@ -530,6 +530,7 @@ model PlatformSettings {
   name        String?  @db.VarChar(100)
   shippingFee Decimal  @default(0) @map("shipping_fee") @db.Decimal(10, 2)
   showRatings Boolean  @default(true) @map("show_ratings")
+  showDefectiveCategory Boolean @default(false) @map("show_defective_category")
 
   @@map("platform_settings")
 }
