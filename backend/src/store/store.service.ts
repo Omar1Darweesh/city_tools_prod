@@ -10,7 +10,7 @@ const productInclude = {
 };
 
 function mapProduct(p: any, showRatings = true) {
-  const currentStock = (p as any).currentStock ?? 0;
+  const availableStock = Math.max(0, (p as any).currentStock ?? 0);
   const reservedStock = (p as any).reservedStock ?? 0;
   return {
     id: p.id,
@@ -25,10 +25,10 @@ function mapProduct(p: any, showRatings = true) {
     description: p.description || '',
     images: Array.isArray(p.images) ? p.images : [],
     rating: showRatings ? (p.rating || 0) : 0,
-    inStock: (currentStock - reservedStock) > 0,
-    stock: currentStock,
+    inStock: availableStock > 0,
+    stock: availableStock,
     reservedStock,
-    availableStock: Math.max(0, currentStock - reservedStock),
+    availableStock,
     badge: p.badge || null,
     isPopular: p.isPopular,
     isBestSale: p.isBestSale,
@@ -90,20 +90,12 @@ export class StoreService {
     private readonly platformSettings: PlatformSettingsService,
   ) {}
 
-  private async getCurrentStock(productId: number): Promise<number> {
-    const [total, reserved] = await Promise.all([
-      this.prisma.stockMovement.aggregate({
-        where: { productId },
-        _sum: { qtyChange: true },
-      }),
-      this.prisma.stockMovement.aggregate({
-        where: { productId, movementType: MovementType.RESERVED },
-        _sum: { qtyChange: true },
-      }),
-    ]);
-    const totalQty = total._sum.qtyChange ?? 0;
-    const reservedQty = reserved._sum.qtyChange ?? 0;
-    return totalQty - reservedQty;
+  private async getAvailableStock(productId: number): Promise<number> {
+    const total = await this.prisma.stockMovement.aggregate({
+      where: { productId },
+      _sum: { qtyChange: true },
+    });
+    return Math.max(0, total._sum.qtyChange ?? 0);
   }
 
   private async getReservedStock(productId: number): Promise<number> {
@@ -118,11 +110,11 @@ export class StoreService {
   private async attachStock(products: any[]): Promise<any[]> {
     return Promise.all(
       products.map(async (p) => {
-        const [stock, reserved] = await Promise.all([
-          this.getCurrentStock(p.id),
+        const [available, reserved] = await Promise.all([
+          this.getAvailableStock(p.id),
           this.getReservedStock(p.id),
         ]);
-        return { ...p, currentStock: stock, reservedStock: reserved };
+        return { ...p, currentStock: available, reservedStock: reserved };
       }),
     );
   }
@@ -332,11 +324,11 @@ export class StoreService {
       throw new NotFoundException('Product not found');
     }
 
-    const [stock, showR] = await Promise.all([
-      this.getCurrentStock(product.id),
+    const [withStock, showR] = await Promise.all([
+      this.attachStock([product]),
       this.shouldShowRatings(),
     ]);
-    return { data: mapProduct({ ...product, currentStock: stock }, showR), success: true };
+    return { data: mapProduct(withStock[0], showR), success: true };
   }
 
   async getCategories() {
@@ -1127,6 +1119,20 @@ export class StoreService {
       unitPrice: item.unitPrice,
       taxRate,
     }));
+
+    for (const item of dto.items) {
+      const available = await this.getAvailableStock(item.productId);
+      if (available < item.qty) {
+        const product = await this.prisma.product.findUnique({
+          where: { id: item.productId },
+          select: { nameEn: true, nameAr: true, code: true },
+        });
+        const label = product?.nameEn || product?.code || `Product #${item.productId}`;
+        throw new BadRequestException(
+          `Insufficient stock for ${label}. Available: ${available}, requested: ${item.qty}`,
+        );
+      }
+    }
 
     // Build notes with zone info
     const zoneNote = dto.deliveryZoneId

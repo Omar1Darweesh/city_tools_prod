@@ -64,8 +64,8 @@ async function fetchProduct(slug: string): Promise<DisplayProduct | null> {
       description: p.description || "",
       images: Array.isArray(p.images) ? p.images.filter(Boolean) : [],
       rating: p.rating || 0,
-      inStock: p.inStock ?? true,
-      stock: p.stock ?? undefined,
+      inStock: Boolean(p.inStock ?? ((p.availableStock ?? p.stock ?? 0) > 0)),
+      stock: p.availableStock ?? p.stock ?? 0,
       badge: p.badge || null,
       isPopular: p.isPopular ?? false,
       isBestSale: p.isBestSale ?? false,
@@ -136,8 +136,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const images = product.images?.length ? product.images : [];
   const currentImg = images[imgIndex];
   const displayPrice = product.discountPrice ?? product.priceRetail;
-  const maxQty = product.stock != null ? product.stock : 999;
-  const stockLevel = product.stock ?? (product.inStock ? null : 0);
+  const maxQty = Math.max(0, product.stock ?? 0);
+  const stockLevel = product.inStock ? maxQty : 0;
 
   const handleAddToCart = () => {
     addItem({
