@@ -39,7 +39,10 @@ export default function AdminDashboard() {
       adminApi.getOrders(),
     ]).then(([products, cats, orders]) => {
       const allProducts: any[] = products.data || [];
-      const orderList: any[] = orders.data || [];
+      const orderList: any[] = (orders.data || []).map((o: any) => ({
+        ...o,
+        status: o.status || (o.delivered ? "DELIVERED" : "PENDING"),
+      }));
       const revenue = orderList.reduce((sum, o) => sum + (o.status !== "CANCELLED" ? (o.total || 0) : 0), 0);
 
       const byStatus: Record<string, number> = {};

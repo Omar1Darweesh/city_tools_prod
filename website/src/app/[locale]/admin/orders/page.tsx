@@ -66,9 +66,7 @@ export default function AdminOrdersPage() {
     setLoading(true);
     adminApi.getOrders()
       .then((res) => {
-        const mapped = (res.data || [])
-          .filter((o: any) => o.channel === "ONLINE_STORE")
-          .map((o: any) => ({
+        const mapped = (res.data || []).map((o: any) => ({
           ...o,
           status: o.status || (o.delivered ? "DELIVERED" : "PENDING"),
         }));

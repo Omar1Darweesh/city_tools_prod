@@ -196,9 +196,9 @@ export const adminApi = {
       method: "DELETE",
     }),
 
-  // ── Orders (read-only via POS) ─────────────────────────────
+  // ── Orders (website online store only) ─────────────────────
   getOrders: () =>
-    authFetch("/pos/sales"),
+    authFetch("/pos/sales?channel=ONLINE_STORE"),
 
   getOrder: (id: number) =>
     authFetch(`/pos/sales/${id}`),
@@ -219,7 +219,7 @@ export const adminApi = {
       const [products, categories, orders] = await Promise.all([
         authFetch("/products?take=1"),
         authFetch("/products/categories"),
-        authFetch("/pos/sales"),
+        authFetch("/pos/sales?channel=ONLINE_STORE"),
       ]);
       return { products, categories, orders };
     } catch {
