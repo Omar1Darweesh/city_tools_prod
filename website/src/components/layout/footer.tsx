@@ -258,15 +258,9 @@ export function Footer() {
             {isRtl ? "مدينة العدد. جميع الحقوق محفوظة." : "All rights reserved."}
           </p>
 
-          <a
-            href="https://sahlaa.ai"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-opacity hover:opacity-100 opacity-75"
-            aria-label={isRtl ? "تطوير بواسطة SAHLAA.AI" : "Website by SAHLAA.AI"}
-          >
+          <div className="flex items-center gap-2.5 opacity-75">
             <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.45)" }}>
-              {isRtl ? "تطوير بواسطة" : "Made by"}
+              {isRtl ? "مدعوم بواسطة" : "Powered by"}
             </span>
             <Image
               src="/assets/sahlaa-ai-logo.jpeg"
@@ -275,7 +269,7 @@ export function Footer() {
               height={40}
               className="h-8 w-auto rounded-md object-contain"
             />
-          </a>
+          </div>
         </div>
       </div>
 
