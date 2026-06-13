@@ -253,10 +253,29 @@ export function Footer() {
           className="mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4"
           style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
         >
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.40)" }}>
+          <p className="text-xs text-center sm:text-start" style={{ color: "rgba(255,255,255,0.40)" }}>
             © {year} City Tools —{" "}
             {isRtl ? "مدينة العدد. جميع الحقوق محفوظة." : "All rights reserved."}
           </p>
+
+          <a
+            href="https://sahlaa.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-opacity hover:opacity-100 opacity-75"
+            aria-label={isRtl ? "تطوير بواسطة SAHLAA.AI" : "Website by SAHLAA.AI"}
+          >
+            <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.45)" }}>
+              {isRtl ? "تطوير بواسطة" : "Made by"}
+            </span>
+            <Image
+              src="/assets/sahlaa-ai-logo.jpeg"
+              alt="SAHLAA.AI"
+              width={120}
+              height={40}
+              className="h-8 w-auto rounded-md object-contain"
+            />
+          </a>
         </div>
       </div>
 
