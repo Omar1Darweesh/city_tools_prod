@@ -90,6 +90,43 @@ export class StoreService {
     private readonly platformSettings: PlatformSettingsService,
   ) {}
 
+  private async getAvailableStockInTx(
+    tx: Prisma.TransactionClient,
+    productId: number,
+  ): Promise<number> {
+    const total = await tx.stockMovement.aggregate({
+      where: { productId },
+      _sum: { qtyChange: true },
+    });
+    return Math.max(0, total._sum.qtyChange ?? 0);
+  }
+
+  private async assertSufficientStock(
+    items: Array<{ productId: number; qty: number }>,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    for (const item of items) {
+      await tx.$executeRawUnsafe(
+        'SELECT pg_advisory_xact_lock($1::bigint)',
+        item.productId,
+      );
+    }
+
+    for (const item of items) {
+      const available = await this.getAvailableStockInTx(tx, item.productId);
+      if (available < item.qty) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          select: { nameEn: true, nameAr: true, code: true },
+        });
+        const label = product?.nameEn || product?.code || `Product #${item.productId}`;
+        throw new BadRequestException(
+          `Insufficient stock for ${label}. Available: ${available}, requested: ${item.qty}`,
+        );
+      }
+    }
+  }
+
   private async getAvailableStock(productId: number): Promise<number> {
     const total = await this.prisma.stockMovement.aggregate({
       where: { productId },
@@ -1157,17 +1194,23 @@ export class StoreService {
       userId,
     );
 
-    // Update status to PENDING and create reservation movements
     const location = await this.prisma.stockLocation.findFirst({
       where: { branchId: 1, active: true },
     });
 
-    if (location) {
+    if (!location) {
+      throw new BadRequestException('No active stock location found');
+    }
+
+    try {
       await this.prisma.$transaction(async (tx) => {
+        await this.assertSufficientStock(dto.items, tx);
+
         await tx.salesInvoice.update({
           where: { id: sale.id },
           data: { status: OrderStatus.PENDING },
         });
+
         await tx.stockMovement.createMany({
           data: dto.items.map((item) => ({
             productId: item.productId,
@@ -1180,6 +1223,13 @@ export class StoreService {
           })),
         });
       });
+    } catch (error) {
+      try {
+        await this.salesService.cancelSale(sale.id, userId);
+      } catch {
+        // Best-effort cleanup if reservation fails after invoice creation
+      }
+      throw error;
     }
 
     return { data: { id: sale.id, invoiceNo: sale.invoiceNo }, success: true };
