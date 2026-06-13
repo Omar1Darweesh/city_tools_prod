@@ -259,8 +259,9 @@ export function Footer() {
           </p>
 
           <div className="flex items-center gap-2.5">
-            <span className="text-xs font-semibold tracking-wide" style={{ color: "#C0161B" }}>
-              {isRtl ? "مدعوم بواسطة SAHLAA.AI" : "Powered by SAHLAA.AI"}
+            <span className="text-xs font-medium tracking-wide" style={{ color: "rgba(255,255,255,0.45)" }}>
+              {isRtl ? "مدعوم بواسطة " : "Powered by "}
+              <span className="font-semibold" style={{ color: "#C0161B" }}>SAHLAA.AI</span>
             </span>
             <div className="group relative shrink-0">
               <Image
