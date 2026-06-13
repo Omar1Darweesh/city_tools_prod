@@ -413,6 +413,7 @@ export default function HomePage() {
                   <span className="text-[10px] text-muted-foreground">{cat.productCount} {isRtl ? "منتج" : "items"}</span>
                 </Link>
               ))}
+              </div>
             </div>
           </Reveal>
         </div>
