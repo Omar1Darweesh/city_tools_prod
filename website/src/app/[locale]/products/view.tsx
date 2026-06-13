@@ -200,10 +200,11 @@ function ProductsContent() {
     </div>
 
       {/* Quick Filters */}
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+      <div className="mb-3 mobile-scroll-x -mx-3 px-3">
+        <div className="flex flex-nowrap items-center gap-1.5 w-max min-w-full pb-1">
         <button
           onClick={showAllProducts}
-          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+          className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
             !filterPopular && !filterBestSale && !filterDiscounted && !filterBadge && !minRating && stockThreshold === "all" && !selectedCategory && !query
               ? "border-primary bg-primary/10 text-primary"
               : "border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -213,7 +214,7 @@ function ProductsContent() {
         </button>
         <button
           onClick={() => setFilterPopular(!filterPopular)}
-          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+          className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
             filterPopular
               ? "border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
               : "border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -223,7 +224,7 @@ function ProductsContent() {
         </button>
         <button
           onClick={() => setFilterBestSale(!filterBestSale)}
-          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+          className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
             filterBestSale
               ? "border-red-400 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"
               : "border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -233,7 +234,7 @@ function ProductsContent() {
         </button>
         <button
           onClick={() => setFilterDiscounted(!filterDiscounted)}
-          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+          className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
             filterDiscounted
               ? "border-green-400 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
               : "border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -243,7 +244,7 @@ function ProductsContent() {
         </button>
         <button
           onClick={() => setFilterBadge(filterBadge === "NEW" ? undefined : "NEW")}
-          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+          className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
             filterBadge === "NEW"
               ? "border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
               : "border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -252,7 +253,7 @@ function ProductsContent() {
           🆕 {locale === "ar" ? "جديد" : "New"}
         </button>
         <Select value={String(minRating)} onValueChange={(v) => setMinRating(Number(v))}>
-          <SelectTrigger className="h-7 text-xs w-[100px] rounded-full">
+          <SelectTrigger className="h-7 text-xs w-[100px] rounded-full shrink-0">
             <SelectValue placeholder={locale === "ar" ? "التقييم" : "Rating"} />
           </SelectTrigger>
           <SelectContent>
@@ -265,7 +266,7 @@ function ProductsContent() {
           </SelectContent>
         </Select>
         <Select value={stockThreshold} onValueChange={(v) => setStockThreshold(v as StockThreshold | "all")}>
-          <SelectTrigger className="h-7 text-xs w-[110px] rounded-full">
+          <SelectTrigger className="h-7 text-xs w-[110px] rounded-full shrink-0">
             <SelectValue placeholder={locale === "ar" ? "المخزون" : "Stock"} />
           </SelectTrigger>
           <SelectContent>
@@ -276,10 +277,11 @@ function ProductsContent() {
           </SelectContent>
         </Select>
         {(filterPopular || filterBestSale || filterDiscounted || filterBadge || minRating > 0 || stockThreshold !== "all" || selectedCategory || query) && (
-          <button onClick={clearFilters} className="text-[10px] text-muted-foreground hover:text-foreground underline ms-1">
+          <button onClick={clearFilters} className="shrink-0 text-[10px] text-muted-foreground hover:text-foreground underline ms-1">
             {locale === "ar" ? "مسح" : "Clear"}
           </button>
         )}
+        </div>
       </div>
 
       <div className="flex gap-4">
@@ -351,10 +353,13 @@ function ProductsContent() {
         {showFilters && (
           <div className="fixed inset-0 z-40 lg:hidden">
             <div className="absolute inset-0 bg-black/50" onClick={() => setShowFilters(false)} />
-            <div className="absolute bottom-0 left-0 right-0 rounded-t-xl bg-background p-4">
-              <h3 className="mb-3 text-base font-semibold">
-                {locale === "ar" ? "تصفية" : "Filter"}
-              </h3>
+            <div className="absolute bottom-0 left-0 right-0 flex max-h-[85dvh] flex-col rounded-t-xl bg-background shadow-2xl">
+              <div className="shrink-0 border-b px-4 py-3">
+                <h3 className="text-base font-semibold">
+                  {locale === "ar" ? "تصفية" : "Filter"}
+                </h3>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3">
               {[
                 { key: "categories", labelEn: "Categories", labelAr: "الأقسام", hidden: false },
                 { key: "subcategories", labelEn: "Subcategories", labelAr: "التصنيفات الفرعية", hidden: !selectedCategory },
@@ -412,6 +417,12 @@ function ProductsContent() {
                   </div>
                 );
               })}
+              </div>
+              <div className="shrink-0 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <Button className="w-full rounded-full" onClick={() => setShowFilters(false)}>
+                  {locale === "ar" ? "تطبيق" : "Apply Filters"}
+                </Button>
+              </div>
             </div>
           </div>
         )}

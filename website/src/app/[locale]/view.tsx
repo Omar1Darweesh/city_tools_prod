@@ -245,29 +245,29 @@ function HeroSlider({ slides, locale }: { slides: any[]; locale: string }) {
       </div>
 
       {/* Content — fixed vertical space so text length does not change hero height */}
-      <div className="relative z-10 h-full mx-auto max-w-7xl px-6 sm:px-10 lg:px-16 flex items-center">
+      <div className="relative z-10 h-full mx-auto max-w-7xl px-4 sm:px-10 lg:px-16 flex items-center">
         <div
-          className="max-w-xl w-full min-h-[240px] sm:min-h-[260px] flex flex-col justify-center"
+          className="max-w-xl w-full min-h-[200px] sm:min-h-[260px] flex flex-col justify-center"
           style={{
             opacity: animating ? 0 : 1,
             transform: animating ? "translateX(40px)" : "translateX(0)",
             transition: "opacity 0.45s ease, transform 0.45s ease",
           }}
         >
-          <span className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold mb-5 animate-badge-pop w-fit" style={{ background: slide.accent + "25", color: slide.accent, border: `1px solid ${slide.accent}40` }}>
+          <span className="inline-flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-bold mb-3 sm:mb-5 animate-badge-pop w-fit" style={{ background: slide.accent + "25", color: slide.accent, border: `1px solid ${slide.accent}40` }}>
             ✦ {locale === "ar" ? slide.tag : slide.tagEn}
           </span>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight mb-4 line-clamp-3">
+          <h1 className="text-2xl sm:text-5xl lg:text-6xl font-black text-white leading-tight mb-3 sm:mb-4 line-clamp-3">
             {locale === "ar" ? slide.titleAr : slide.titleEn}
           </h1>
-          <p className="text-white/70 text-base sm:text-lg leading-relaxed mb-8 line-clamp-2">
+          <p className="text-white/70 text-sm sm:text-lg leading-relaxed mb-5 sm:mb-8 line-clamp-2">
             {locale === "ar" ? slide.subAr : slide.subEn}
           </p>
-          <div className="flex gap-3 flex-wrap">
-            <Link href="/products" className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-bold shadow-lg transition-all hover:scale-105 animate-glow-pulse" style={{ background: slide.accent, color: "#fff" }}>
+          <div className="flex gap-2 sm:gap-3 flex-wrap">
+            <Link href="/products" className="inline-flex items-center gap-2 rounded-full px-5 sm:px-7 py-2.5 sm:py-3 text-xs sm:text-sm font-bold shadow-lg transition-all hover:scale-105 animate-glow-pulse" style={{ background: slide.accent, color: "#fff" }}>
               {locale === "ar" ? "تسوق الآن" : "Shop Now"}
             </Link>
-            <Link href="/categories" className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-bold border border-white/20 text-white hover:bg-white/10 transition-all">
+            <Link href="/categories" className="inline-flex items-center gap-2 rounded-full px-5 sm:px-7 py-2.5 sm:py-3 text-xs sm:text-sm font-bold border border-white/20 text-white hover:bg-white/10 transition-all">
               {locale === "ar" ? "تصفح الأقسام" : "Browse Categories"}
             </Link>
           </div>
@@ -276,16 +276,20 @@ function HeroSlider({ slides, locale }: { slides: any[]; locale: string }) {
 
       {total > 1 && (
         <>
-          <button type="button" onClick={() => go(active - 1)} className="absolute z-20 start-4 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/25 transition-all backdrop-blur-sm" aria-label="Previous slide">
+          <button type="button" onClick={() => go(active - 1)} className="absolute z-20 start-2 sm:start-4 top-1/2 -translate-y-1/2 flex size-9 sm:size-10 items-center justify-center rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/25 transition-all backdrop-blur-sm" aria-label="Previous slide">
             <ArrowPrev className="size-4" />
           </button>
-          <button type="button" onClick={() => go(active + 1)} className="absolute z-20 end-4 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/25 transition-all backdrop-blur-sm" aria-label="Next slide">
+          <button type="button" onClick={() => go(active + 1)} className="absolute z-20 end-2 sm:end-4 top-1/2 -translate-y-1/2 flex size-9 sm:size-10 items-center justify-center rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/25 transition-all backdrop-blur-sm" aria-label="Next slide">
             <ArrowNext className="size-4" />
           </button>
-          <div className="absolute z-20 bottom-5 start-1/2 -translate-x-1/2 flex gap-2">
-            {slides.map((_, i) => (
-              <button key={i} type="button" onClick={() => go(i)} aria-label={`Slide ${i + 1}`} className="rounded-full transition-all" style={{ width: i === active ? 24 : 8, height: 8, background: i === active ? slide.accent : "rgba(255,255,255,0.35)" }} />
-            ))}
+          <div className="absolute z-20 bottom-4 sm:bottom-5 inset-x-0 flex justify-center px-4">
+            <div className="mobile-scroll-x max-w-full">
+              <div className="flex w-max gap-2 px-1">
+                {slides.map((_, i) => (
+                  <button key={i} type="button" onClick={() => go(i)} aria-label={`Slide ${i + 1}`} className="shrink-0 rounded-full transition-all" style={{ width: i === active ? 24 : 8, height: 8, background: i === active ? slide.accent : "rgba(255,255,255,0.35)" }} />
+                ))}
+              </div>
+            </div>
           </div>
         </>
       )}
@@ -385,7 +389,8 @@ export default function HomePage() {
             <SectionTitle ar="تسوق من أهم الفئات" en="Shop by Category" link="/categories" locale={locale} />
           </Reveal>
           <Reveal delay={100}>
-            <div className="flex gap-6 overflow-x-auto pb-3 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+            <div className="mobile-scroll-x -mx-4 px-4 sm:mx-0 sm:px-0 pb-3">
+              <div className="flex gap-4 sm:gap-6 w-max min-w-full snap-x snap-mandatory">
               {cats.length === 0 ? (
                 <div className="flex gap-4 text-sm text-muted-foreground py-4">
                   {[...Array(4)].map((_, i) => (
@@ -396,7 +401,7 @@ export default function HomePage() {
                   ))}
                 </div>
               ) : cats.map((cat, i) => (
-                <Link key={cat.id} href={`/categories/${cat.slug}`} className="category-circle flex-shrink-0 flex flex-col items-center gap-2 group" style={{ animationDelay: `${i * 60}ms` }}>
+                <Link key={cat.id} href={`/categories/${cat.slug}`} className="category-circle snap-start flex-shrink-0 flex flex-col items-center gap-2 group" style={{ animationDelay: `${i * 60}ms` }}>
                   <div className="circle-ring size-20 sm:size-24 rounded-full border-2 border-transparent p-1 transition-all duration-300 group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/20">
                     <div className="size-full rounded-full flex items-center justify-center shadow-md" style={{ background: `linear-gradient(135deg, ${cat.color || "#6b7280"}, ${cat.color ? cat.color + "99" : "#9ca3af"})` }}>
                       {getCatIcon(cat)}

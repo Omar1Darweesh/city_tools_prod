@@ -165,6 +165,15 @@ body {
   opacity: 1;
   transform: translateY(0);
 }
+@media (hover: none), (pointer: coarse) {
+  .product-card .add-btn {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .product-card:hover {
+    transform: none;
+  }
+}
 
 /* ===== CATEGORY CIRCLE ===== */
 
@@ -184,13 +193,36 @@ body {
   display: flex;
   gap: 1rem;
   overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 0.75rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
   scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
 }
 .scroll-row::-webkit-scrollbar { display: none; }
-.scroll-row > * { scroll-snap-align: start; }
+.scroll-row > * { scroll-snap-align: start; flex-shrink: 0; }
+
+/* Horizontal scroll container for mobile nav / filters */
+.mobile-scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+}
+.mobile-scroll-x::-webkit-scrollbar { display: none; }
+
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
 
 /* ===== SECTION DIVIDER ===== */
 

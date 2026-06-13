@@ -109,7 +109,7 @@ export default async function LocaleLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col antialiased">
+      <body className="min-h-full flex flex-col antialiased overflow-x-hidden">
         <LocaleUpdater locale={locale} />
         <NextIntlClientProvider messages={messages}>
           <QueryProvider>
