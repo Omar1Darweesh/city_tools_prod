@@ -260,8 +260,7 @@ export function Footer() {
 
           <div className="flex items-center gap-2.5">
             <span className="text-xs font-medium tracking-wide" style={{ color: "rgba(255,255,255,0.45)" }}>
-              {isRtl ? "مدعوم بواسطة " : "Powered by "}
-              <span className="font-semibold" style={{ color: "#C0161B" }}>SAHLAA.AI</span>
+              {isRtl ? "مدعوم بواسطة SAHLAA.AI" : "Powered by SAHLAA.AI"}
             </span>
             <div className="group relative shrink-0">
               <Image
@@ -274,7 +273,7 @@ export function Footer() {
               <span
                 role="tooltip"
                 className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md px-2.5 py-1 text-[10px] font-bold text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100"
-                style={{ background: "#C0161B" }}
+                style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.85)" }}
               >
                 SAHLAA.AI
               </span>
