@@ -36,5 +36,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|upload|_next|_vercel|.*\\..*).*)"],
+  matcher: [
+    "/((?!api|upload|_next|_vercel|opengraph-image|twitter-image|icon|sitemap.xml|robots.txt|.*\\..*).*)",
+  ],
 };
