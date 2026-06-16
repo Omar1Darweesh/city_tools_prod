@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
 import { X } from 'lucide-react';
+import ProductImageUpload from '../components/ProductImageUpload';
 
 interface Category {
     id: number;
@@ -80,6 +81,7 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
     });
 
     const [loading, setLoading] = useState(false);
+    const [images, setImages] = useState('');
 
     // Load categories on mount
     useEffect(() => {
@@ -88,8 +90,12 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
 
     // Load existing product data
     useEffect(() => {
-        if (product) {
-            setFormData({
+        if (!product) {
+            setImages('');
+            return;
+        }
+
+        setFormData({
                 code: product.code || '',
                 barcode: product.barcode || '',
                 nameEn: product.nameEn || '',
@@ -105,6 +111,14 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
                 initialStock: product.stock || 0,
                 active: product.active ?? true,
             });
+
+            setImages(
+                Array.isArray(product.images)
+                    ? product.images.join('||')
+                    : typeof product.images === 'string'
+                      ? product.images
+                      : '',
+            );
 
             // Load hierarchy if product has itemType
             if (product.itemType) {
@@ -140,8 +154,6 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
                 setIsSpecialCategory(isMixed || isDefective);
                 setSpecialCategoryType(isMixed ? 'mixed' : isDefective ? 'defective' : null);
             }
-
-        }
     }, [product]);
 
     // ✅ AUTO-CALCULATE PRICES EFFECT
@@ -300,11 +312,21 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
         try {
             const { initialStock, costAvg, ...baseData } = formData;
 
+            const imageList = images
+                ? images.split('||').map((s) => s.trim()).filter(Boolean)
+                : [];
+            if (imageList.some((u) => u.startsWith('data:'))) {
+                alert('يرجى إعادة رفع الصور — الصور المضمنة لا يمكن حفظها');
+                setLoading(false);
+                return;
+            }
+
             // ✅ UPDATED PAYLOAD: null itemTypeId for special categories
             let payload: any = {
                 ...baseData,
                 itemTypeId: isSpecialCategory ? null : selectedItemTypeId,
                 categoryId: selectedCategoryId,
+                images: imageList,
             };
 
             // ✅ For editing existing products, use costAvg instead of cost
@@ -563,6 +585,23 @@ export default function ProductForm({ product, onClose, onSave }: ProductFormPro
                                 )}
                             </div>
                         )}
+                    </div>
+
+                    {/* ========================================== */}
+                    {/* PRODUCT IMAGES (website) */}
+                    {/* ========================================== */}
+                    <div
+                        style={{
+                            padding: '1.25rem',
+                            background: '#f0fdf4',
+                            border: '2px solid #86efac',
+                            borderRadius: '0.5rem',
+                        }}
+                    >
+                        <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.05rem', fontWeight: '700', color: '#166534' }}>
+                            📷 صور المنتج (تظهر في الموقع)
+                        </h3>
+                        <ProductImageUpload value={images} onChange={setImages} />
                     </div>
 
                     {/* ========================================== */}
