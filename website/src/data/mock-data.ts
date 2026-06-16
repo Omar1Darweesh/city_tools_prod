@@ -50,10 +50,13 @@ export interface MockItemType {
 }
 
 export interface MockBrand {
-  id: number;
+  id: string | number;
   name: string;
   nameAr: string;
   productCount: number;
+  logo?: string | null;
+  isTrusted?: boolean;
+  sortOrder?: number;
 }
 
 export interface MockStatistic {

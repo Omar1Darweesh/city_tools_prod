@@ -72,6 +72,22 @@ function getCatIcon(cat: MockCategory): React.ReactNode {
   return ICON_COMPONENT[key] || <Package className="size-7 text-white" />;
 }
 
+function resolveBrandLogo(logo?: string | null): string | null {
+  if (!logo) return null;
+  if (logo.startsWith("http://") || logo.startsWith("https://") || logo.startsWith("/")) return logo;
+  return `/${logo.replace(/^\/+/, "")}`;
+}
+
+function CircleScroller({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mobile-scroll-x -mx-4 px-4 sm:mx-0 sm:px-0 pb-3">
+      <div className="flex gap-4 sm:gap-6 w-max min-w-full snap-x snap-mandatory">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /* ─── product card ─── */
 function ProductCard({ product, locale }: { product: MockProduct; locale: string }) {
   const price = product.discountPrice ?? product.priceRetail;
@@ -382,15 +398,65 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CATEGORIES */}
+      {/* BRANDS */}
       <section className="bg-background py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionTitle ar="تسوق من أهم الماركات" en="Shop by Brand" link="/products" locale={locale} />
+          </Reveal>
+          <Reveal delay={100}>
+            <CircleScroller>
+              {brands.length === 0 ? (
+                <div className="flex gap-4 text-sm text-muted-foreground py-4">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2 animate-pulse">
+                      <div className="size-20 sm:size-24 rounded-full bg-muted" />
+                      <div className="h-3 w-16 rounded bg-muted" />
+                    </div>
+                  ))}
+                </div>
+              ) : brands.map((brand, i) => {
+                const logoSrc = resolveBrandLogo(brand.logo);
+                const label = isRtl ? brand.nameAr || brand.name : brand.name;
+                return (
+                  <Link
+                    key={String(brand.id)}
+                    href={`/products?brand=${encodeURIComponent(brand.name)}`}
+                    className="category-circle snap-start flex-shrink-0 flex flex-col items-center gap-2 group"
+                    style={{ animationDelay: `${i * 60}ms` }}
+                  >
+                    <div className="circle-ring size-20 sm:size-24 rounded-full border-2 border-transparent p-1 transition-all duration-300 group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/20">
+                      <div className="size-full rounded-full flex items-center justify-center shadow-md bg-white border border-border overflow-hidden p-3">
+                        {logoSrc ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={logoSrc} alt={label} className="size-full object-contain" />
+                        ) : (
+                          <span className="text-sm font-black uppercase text-muted-foreground tracking-tight">
+                            {brand.name.slice(0, 3)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-center text-foreground group-hover:text-primary transition-colors">
+                      {label}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{brand.productCount} {isRtl ? "منتج" : "items"}</span>
+                  </Link>
+                );
+              })}
+            </CircleScroller>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* CATEGORIES */}
+      <section className="bg-muted/40 py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <Reveal>
             <SectionTitle ar="تسوق من أهم الفئات" en="Shop by Category" link="/categories" locale={locale} />
           </Reveal>
           <Reveal delay={100}>
-            <div className="mobile-scroll-x -mx-4 px-4 sm:mx-0 sm:px-0 pb-3">
-              <div className="flex gap-4 sm:gap-6 w-max min-w-full snap-x snap-mandatory">
+            <CircleScroller>
               {cats.length === 0 ? (
                 <div className="flex gap-4 text-sm text-muted-foreground py-4">
                   {[...Array(4)].map((_, i) => (
@@ -413,8 +479,7 @@ export default function HomePage() {
                   <span className="text-[10px] text-muted-foreground">{cat.productCount} {isRtl ? "منتج" : "items"}</span>
                 </Link>
               ))}
-              </div>
-            </div>
+            </CircleScroller>
           </Reveal>
         </div>
       </section>

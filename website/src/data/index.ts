@@ -234,7 +234,18 @@ export const store = {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/store/brands/trusted`);
       const json = await res.json();
-      return json.data || [];
+      const rows: MockBrand[] = (json.data || []).map((b: MockBrand) => ({
+        id: b.id,
+        name: b.name,
+        nameAr: b.nameAr || b.name,
+        productCount: b.productCount ?? 0,
+        logo: b.logo || null,
+        isTrusted: b.isTrusted !== false,
+        sortOrder: b.sortOrder ?? 0,
+      }));
+      return rows
+        .filter((b) => b.isTrusted !== false && b.productCount > 0)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || b.productCount - a.productCount);
     } catch {
       return mockBrands;
     }

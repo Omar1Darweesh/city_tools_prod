@@ -22,6 +22,7 @@ function ProductsContent() {
 
   const query = searchParams.get("search") || "";
   const categoryParam = searchParams.get("categoryId");
+  const brandParam = searchParams.get("brand") || "";
 
   const [searchInput, setSearchInput] = useState(query);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -30,6 +31,7 @@ function ProductsContent() {
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>(
     categoryParam ? Number(categoryParam) : undefined
   );
+  const [filterBrand, setFilterBrand] = useState<string | undefined>(brandParam || undefined);
   const [filterSubcategory, setFilterSubcategory] = useState<number | undefined>(undefined);
   const [filterItemType, setFilterItemType] = useState<number | undefined>(undefined);
   const [filterPopular, setFilterPopular] = useState(false);
@@ -81,6 +83,7 @@ function ProductsContent() {
     setSelectedCategory(undefined);
     setFilterSubcategory(undefined);
     setFilterItemType(undefined);
+    setFilterBrand(undefined);
     setFilterPopular(false);
     setFilterBestSale(false);
     setFilterDiscounted(false);
@@ -106,7 +109,7 @@ function ProductsContent() {
     router.push("/products");
   };
 
-  const filterDeps = [query, selectedCategory, filterSubcategory, filterItemType, sort, filterPopular, filterBestSale, filterDiscounted, filterBadge, minRating, stockThreshold];
+  const filterDeps = [query, selectedCategory, filterSubcategory, filterItemType, filterBrand, sort, filterPopular, filterBestSale, filterDiscounted, filterBadge, minRating, stockThreshold];
 
   useEffect(() => { setPage(1); }, filterDeps);
 
@@ -118,6 +121,7 @@ function ProductsContent() {
       categoryId: selectedCategory,
       subcategoryId: filterSubcategory,
       itemTypeId: filterItemType,
+      brand: filterBrand,
       sort,
       isPopular: filterPopular || undefined,
       isBestSale: filterBestSale || undefined,
@@ -276,7 +280,7 @@ function ProductsContent() {
             <SelectItem value="high">{locale === "ar" ? "مرتفع" : "High"}</SelectItem>
           </SelectContent>
         </Select>
-        {(filterPopular || filterBestSale || filterDiscounted || filterBadge || minRating > 0 || stockThreshold !== "all" || selectedCategory || query) && (
+        {(filterPopular || filterBestSale || filterDiscounted || filterBadge || minRating > 0 || stockThreshold !== "all" || selectedCategory || filterBrand || query) && (
           <button onClick={clearFilters} className="shrink-0 text-[10px] text-muted-foreground hover:text-foreground underline ms-1">
             {locale === "ar" ? "مسح" : "Clear"}
           </button>
