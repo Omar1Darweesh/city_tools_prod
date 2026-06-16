@@ -16,6 +16,11 @@ async function readFontFile(name: string): Promise<ArrayBuffer> {
   return Uint8Array.from(data).buffer;
 }
 
+export async function loadFontBase64(name: string): Promise<string> {
+  const data = await readFile(path.join(FONT_DIR, name));
+  return data.toString("base64");
+}
+
 export async function loadLogoSrc(): Promise<string> {
   const candidates = [
     path.join(process.cwd(), "public/assets/CT Logo.jpg.jpeg"),

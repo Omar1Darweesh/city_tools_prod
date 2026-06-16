@@ -1,18 +1,16 @@
+import { type ArabicOgText } from "@/lib/arabic-text-svg";
 import { BRAND } from "@/lib/og-brand-image";
-import { satoriArabic } from "@/lib/satori-arabic";
 
 type BrandOgContentProps = {
   logoSrc: string;
+  arabic: ArabicOgText;
   compact?: boolean;
 };
 
-export function BrandOgContent({ logoSrc, compact = false }: BrandOgContentProps) {
+export function BrandOgContent({ logoSrc, arabic, compact = false }: BrandOgContentProps) {
   const logoHeight = compact ? 118 : 138;
   const logoWidth = compact ? 220 : 260;
-
-  const arabicTitle = satoriArabic("سيتي تولز");
-  const arabicTagline1 = satoriArabic("مصدرك الموثوق للأدوات والمعدات");
-  const arabicTagline2 = satoriArabic("الاحترافية في مصر");
+  const titleImgHeight = compact ? 68 : 76;
 
   return (
     <div
@@ -91,17 +89,8 @@ export function BrandOgContent({ logoSrc, compact = false }: BrandOgContentProps
                 background: `linear-gradient(90deg, transparent, ${BRAND.red})`,
               }}
             />
-            <span
-              style={{
-                fontFamily: "NotoArabic",
-                fontSize: compact ? 44 : 52,
-                fontWeight: 700,
-                color: "white",
-                lineHeight: 1.2,
-              }}
-            >
-              {arabicTitle}
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={arabic.title} width={280} height={titleImgHeight} />
             <div
               style={{
                 width: 48,
@@ -136,30 +125,10 @@ export function BrandOgContent({ logoSrc, compact = false }: BrandOgContentProps
           >
             Your Trusted Source for Professional Tools and Equipment
           </span>
-          <span
-            style={{
-              fontFamily: "NotoArabic",
-              fontSize: compact ? 17 : 20,
-              fontWeight: 400,
-              color: "rgba(255,255,255,0.45)",
-              textAlign: "center",
-              lineHeight: 1.5,
-            }}
-          >
-            {arabicTagline1}
-          </span>
-          <span
-            style={{
-              fontFamily: "NotoArabic",
-              fontSize: compact ? 17 : 20,
-              fontWeight: 400,
-              color: "rgba(255,255,255,0.45)",
-              textAlign: "center",
-              lineHeight: 1.5,
-            }}
-          >
-            {arabicTagline2}
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={arabic.tagline1} width={compact ? 520 : 720} height={compact ? 36 : 40} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={arabic.tagline2} width={compact ? 280 : 320} height={compact ? 36 : 40} />
         </div>
       </div>
 
