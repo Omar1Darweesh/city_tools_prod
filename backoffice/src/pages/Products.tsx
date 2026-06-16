@@ -40,6 +40,7 @@ interface Subcategory {
     id: number;
     name: string;
     nameAr: string;
+    categoryId?: number;
     itemTypes: ItemType[];
 }
 
@@ -47,6 +48,8 @@ interface ItemType {
     id: number;
     name: string;
     nameAr: string;
+    subcategoryId?: number;
+    categoryId?: number;
 }
 
 export default function Products() {
@@ -180,16 +183,84 @@ export default function Products() {
         fetchProducts();
     };
 
-    const getSubcategories = (): Subcategory[] => {
-        if (!selectedCategory) return [];
-        const category = categories.find(c => c.id === selectedCategory);
-        return category?.subcategories || [];
+    const findSubcategoryById = (id: number) => {
+        for (const cat of categories) {
+            const sub = cat.subcategories?.find((s) => s.id === id);
+            if (sub) return { ...sub, categoryId: cat.id, categoryName: cat.nameAr || cat.name };
+        }
+        return null;
     };
 
-    const getItemTypes = (): ItemType[] => {
-        if (!selectedSubcategory) return [];
-        const subcategory = getSubcategories().find(s => s.id === selectedSubcategory);
-        return subcategory?.itemTypes || [];
+    const findItemTypeById = (id: number) => {
+        for (const cat of categories) {
+            for (const sub of cat.subcategories || []) {
+                const item = sub.itemTypes?.find((t) => t.id === id);
+                if (item) {
+                    return {
+                        ...item,
+                        subcategoryId: sub.id,
+                        subcategoryName: sub.nameAr || sub.name,
+                        categoryId: cat.id,
+                        categoryName: cat.nameAr || cat.name,
+                    };
+                }
+            }
+        }
+        return null;
+    };
+
+    const getSubcategories = (): Array<Subcategory & { categoryId: number; categoryName: string }> => {
+        if (selectedCategory) {
+            const category = categories.find((c) => c.id === selectedCategory);
+            return (category?.subcategories || []).map((sub) => ({
+                ...sub,
+                categoryId: selectedCategory,
+                categoryName: category?.nameAr || category?.name || '',
+            }));
+        }
+        return categories.flatMap((cat) =>
+            (cat.subcategories || []).map((sub) => ({
+                ...sub,
+                categoryId: cat.id,
+                categoryName: cat.nameAr || cat.name,
+            })),
+        );
+    };
+
+    const getItemTypes = (): Array<ItemType & { subcategoryId: number; subcategoryName: string; categoryId: number; categoryName: string }> => {
+        if (selectedSubcategory) {
+            const sub = findSubcategoryById(selectedSubcategory);
+            return (sub?.itemTypes || []).map((item) => ({
+                ...item,
+                subcategoryId: selectedSubcategory,
+                subcategoryName: sub?.nameAr || sub?.name || '',
+                categoryId: sub?.categoryId || 0,
+                categoryName: sub?.categoryName || '',
+            }));
+        }
+        if (selectedCategory) {
+            const category = categories.find((c) => c.id === selectedCategory);
+            return (category?.subcategories || []).flatMap((sub) =>
+                (sub.itemTypes || []).map((item) => ({
+                    ...item,
+                    subcategoryId: sub.id,
+                    subcategoryName: sub.nameAr || sub.name,
+                    categoryId: selectedCategory,
+                    categoryName: category?.nameAr || category?.name || '',
+                })),
+            );
+        }
+        return categories.flatMap((cat) =>
+            (cat.subcategories || []).flatMap((sub) =>
+                (sub.itemTypes || []).map((item) => ({
+                    ...item,
+                    subcategoryId: sub.id,
+                    subcategoryName: sub.nameAr || sub.name,
+                    categoryId: cat.id,
+                    categoryName: cat.nameAr || cat.name,
+                })),
+            ),
+        );
     };
 
     const hasActiveFilters = searchTerm || selectedCategory || selectedSubcategory || selectedItemType || stockFilter || hasImageFilter;
@@ -733,9 +804,15 @@ export default function Products() {
                         <select
                             value={selectedCategory || ''}
                             onChange={(e) => {
-                                setSelectedCategory(e.target.value ? Number(e.target.value) : null);
-                                setSelectedSubcategory(null);
-                                setSelectedItemType(null);
+                                const newCategoryId = e.target.value ? Number(e.target.value) : null;
+                                setSelectedCategory(newCategoryId);
+                                if (newCategoryId && selectedSubcategory) {
+                                    const sub = findSubcategoryById(selectedSubcategory);
+                                    if (sub && sub.categoryId !== newCategoryId) {
+                                        setSelectedSubcategory(null);
+                                        setSelectedItemType(null);
+                                    }
+                                }
                                 setPage(1);
                             }}
                             style={{
@@ -773,11 +850,20 @@ export default function Products() {
                         <select
                             value={selectedSubcategory || ''}
                             onChange={(e) => {
-                                setSelectedSubcategory(e.target.value ? Number(e.target.value) : null);
-                                setSelectedItemType(null);
+                                const newSubId = e.target.value ? Number(e.target.value) : null;
+                                setSelectedSubcategory(newSubId);
+                                if (newSubId) {
+                                    const sub = findSubcategoryById(newSubId);
+                                    if (sub) setSelectedCategory(sub.categoryId);
+                                    if (selectedItemType) {
+                                        const item = findItemTypeById(selectedItemType);
+                                        if (item && item.subcategoryId !== newSubId) {
+                                            setSelectedItemType(null);
+                                        }
+                                    }
+                                }
                                 setPage(1);
                             }}
-                            disabled={!selectedCategory}
                             style={{
                                 width: '100%',
                                 padding: '0.75rem 2.5rem 0.75rem 1rem',
@@ -785,15 +871,16 @@ export default function Products() {
                                 borderRadius: '8px',
                                 fontSize: '0.875rem',
                                 background: 'white',
-                                opacity: selectedCategory ? 1 : 0.5,
                                 transition: 'all 0.2s',
                                 fontWeight: selectedSubcategory ? '600' : 'normal',
                             }}
                         >
                             <option value="">كل الفئات الفرعية</option>
-                            {getSubcategories().map(sub => (
+                            {getSubcategories().map((sub) => (
                                 <option key={sub.id} value={sub.id}>
-                                    {sub.nameAr || sub.name}
+                                    {selectedCategory
+                                        ? sub.nameAr || sub.name
+                                        : `${sub.categoryName} → ${sub.nameAr || sub.name}`}
                                 </option>
                             ))}
                         </select>
@@ -814,10 +901,17 @@ export default function Products() {
                         <select
                             value={selectedItemType || ''}
                             onChange={(e) => {
-                                setSelectedItemType(e.target.value ? Number(e.target.value) : null);
+                                const newItemTypeId = e.target.value ? Number(e.target.value) : null;
+                                setSelectedItemType(newItemTypeId);
+                                if (newItemTypeId) {
+                                    const item = findItemTypeById(newItemTypeId);
+                                    if (item) {
+                                        setSelectedSubcategory(item.subcategoryId);
+                                        setSelectedCategory(item.categoryId);
+                                    }
+                                }
                                 setPage(1);
                             }}
-                            disabled={!selectedSubcategory}
                             style={{
                                 width: '100%',
                                 padding: '0.75rem 2.5rem 0.75rem 1rem',
@@ -825,15 +919,18 @@ export default function Products() {
                                 borderRadius: '8px',
                                 fontSize: '0.875rem',
                                 background: 'white',
-                                opacity: selectedSubcategory ? 1 : 0.5,
                                 transition: 'all 0.2s',
                                 fontWeight: selectedItemType ? '600' : 'normal',
                             }}
                         >
                             <option value="">كل الأصناف</option>
-                            {getItemTypes().map(item => (
+                            {getItemTypes().map((item) => (
                                 <option key={item.id} value={item.id}>
-                                    {item.nameAr || item.name}
+                                    {selectedSubcategory
+                                        ? item.nameAr || item.name
+                                        : selectedCategory
+                                          ? `${item.subcategoryName} → ${item.nameAr || item.name}`
+                                          : `${item.categoryName} → ${item.subcategoryName} → ${item.nameAr || item.name}`}
                                 </option>
                             ))}
                         </select>
