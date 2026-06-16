@@ -14,6 +14,7 @@ export function ProductCard({ product, locale }: { product: MockProduct; locale:
   const gradient = "from-gray-500 to-gray-600";
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
+  const productName = locale === "ar" ? product.nameAr || product.nameEn : product.nameEn;
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -34,7 +35,7 @@ export function ProductCard({ product, locale }: { product: MockProduct; locale:
       <Link href={`/products/${product.code || product.id}`} className="block">
         <div className="aspect-[3/2] relative overflow-hidden">
           {product.images?.[0] ? (
-            <ProductImage src={product.images[0]} alt="" fill className="object-cover" sizes="150px" />
+            <ProductImage src={product.images[0]} alt={productName} fill className="object-cover" sizes="(max-width: 640px) 50vw, 200px" loading="lazy" />
           ) : null}
           <div className={`absolute inset-0 bg-gradient-to-br ${gradient} ${product.images?.[0] ? "opacity-60" : ""}`} />
           {!product.images?.[0] && (

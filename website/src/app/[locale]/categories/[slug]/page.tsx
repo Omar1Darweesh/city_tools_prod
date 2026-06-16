@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import CategoryDetailView from "./view";
+import { DEFAULT_OG_IMAGE, DEFAULT_OG_IMAGE_META } from "@/lib/seo";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org";
@@ -27,9 +28,9 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
             title,
             description,
             url: `${BASE_URL}/${locale}/categories/${slug}`,
-            images: [{ url: "/assets/CT Logo.png", width: 1200, height: 630, alt: name }],
+            images: [{ ...DEFAULT_OG_IMAGE_META, alt: name }],
           },
-          twitter: { card: "summary_large_image", title, description, images: ["/assets/CT Logo.png"] },
+          twitter: { card: "summary_large_image", title, description, images: [DEFAULT_OG_IMAGE] },
           alternates: {
             canonical: `${BASE_URL}/${locale}/categories/${slug}`,
             languages: {

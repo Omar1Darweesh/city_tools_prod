@@ -7,6 +7,7 @@ import { SessionProvider } from "@/components/providers/session-provider";
 import { CartProvider } from "@/components/cart/cart-context";
 import { LocaleUpdater } from "@/components/layout/locale-updater";
 import StoreShell from "@/components/layout/store-shell";
+import { DEFAULT_OG_IMAGE, DEFAULT_OG_IMAGE_META } from "@/lib/seo";
 
 type Locale = "en" | "ar";
 
@@ -56,20 +57,13 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
       locale: isAr ? "ar_EG" : "en_US",
       alternateLocale: isAr ? "en_US" : "ar_EG",
       type: "website",
-      images: [
-        {
-          url: "/assets/CT Logo.png",
-          width: 1200,
-          height: 630,
-          alt: siteName,
-        },
-      ],
+      images: [DEFAULT_OG_IMAGE_META],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: ["/assets/CT Logo.png"],
+      images: [DEFAULT_OG_IMAGE],
     },
     robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
     verification: {},
