@@ -3,7 +3,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
-const ALLOWED_FOLDERS = new Set(["hero-slides", "products"]);
+const ALLOWED_FOLDERS = new Set(["hero-slides", "products", "brands"]);
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
 
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const safeExt = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext) ? ext : "jpg";
-    const prefix = folder === "products" ? "product" : "hero";
+    const prefix =
+      folder === "products" ? "product" : folder === "brands" ? "brand" : "hero";
     const filename = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${safeExt}`;
     const publicRoot = process.env.UPLOAD_PUBLIC_ROOT || path.join(process.cwd(), "public");
     const uploadDir = path.join(publicRoot, "uploads", folder);

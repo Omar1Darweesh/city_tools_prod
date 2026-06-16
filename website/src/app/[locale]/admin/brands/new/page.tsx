@@ -6,6 +6,7 @@ import { Link, useRouter } from "@/i18n/routing";
 import { useState } from "react";
 import { ArrowLeft, Save, Award } from "lucide-react";
 import { adminApi } from "@/lib/admin-api";
+import BrandLogoUpload from "@/components/admin/brand-logo-upload";
 
 export default function NewBrandPage() {
   const locale = useLocale();
@@ -63,11 +64,7 @@ export default function NewBrandPage() {
               <label className="cf-label">{isRtl ? "الاسم بالعربية" : "Name (Arabic)"} <span className="cf-req">*</span></label>
               <input className="cf-input" value={form.nameAr} onChange={e => set("nameAr", e.target.value)} required dir="rtl" placeholder="مثال: بوش" />
             </div>
-            <div className="cf-field cf-field-full">
-              <label className="cf-label">Logo URL</label>
-              <input className="cf-input" value={form.logo} onChange={e => set("logo", e.target.value)} placeholder="https://example.com/logo.png" />
-              <p className="cf-field-hint">{isRtl ? "رابط صورة الشعار (اختياري)" : "Logo image URL (optional)"}</p>
-            </div>
+            <BrandLogoUpload value={form.logo} onChange={(logo) => set("logo", logo)} locale={locale} />
           </div>
         </div>
 
