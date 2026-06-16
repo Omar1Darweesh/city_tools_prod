@@ -1,4 +1,3 @@
-import { getTranslations } from "next-intl/server";
 import CategoryDetailView from "./view";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -57,6 +56,45 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   };
 }
 
-export default function Page(props: any) {
-  return <CategoryDetailView {...props} />;
+async function fetchCategory(slug: string) {
+  try {
+    const res = await fetch(`${API_BASE}/store/categories/${encodeURIComponent(slug)}`, { next: { revalidate: 3600 } });
+    if (res.ok) {
+      const json = await res.json();
+      return json.data || json;
+    }
+  } catch {}
+  return null;
+}
+
+export default async function Page(props: any) {
+  const { locale, slug } = await props.params;
+  const isAr = locale === "ar";
+  const c = await fetchCategory(slug);
+
+  let breadcrumbSchema = null;
+  if (c?.name) {
+    const name = isAr ? c.nameAr || c.name : c.name;
+    breadcrumbSchema = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: isAr ? "الرئيسية" : "Home", item: `${BASE_URL}/${locale}` },
+        { "@type": "ListItem", position: 2, name: isAr ? "الأقسام" : "Categories", item: `${BASE_URL}/${locale}/categories` },
+        { "@type": "ListItem", position: 3, name, item: `${BASE_URL}/${locale}/categories/${slug}` },
+      ],
+    };
+  }
+
+  return (
+    <>
+      {breadcrumbSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        />
+      )}
+      <CategoryDetailView {...props} />
+    </>
+  );
 }

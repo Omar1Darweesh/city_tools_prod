@@ -1,8 +1,18 @@
-import { getTranslations } from "next-intl/server";
 import ProductDetailView from "./view";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org";
+
+async function fetchProduct(slug: string) {
+  try {
+    const res = await fetch(`${API_BASE}/store/products/${encodeURIComponent(slug)}`, { next: { revalidate: 3600 } });
+    if (res.ok) {
+      const json = await res.json();
+      return json.data || json;
+    }
+  } catch {}
+  return null;
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string; slug: string }> }) {
   const { locale, slug } = await params;
@@ -73,6 +83,68 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   };
 }
 
-export default function Page(props: any) {
-  return <ProductDetailView {...props} />;
+export default async function Page(props: any) {
+  const { locale, slug } = await props.params;
+  const isAr = locale === "ar";
+  const p = await fetchProduct(slug);
+
+  let productSchema = null;
+  let breadcrumbSchema = null;
+
+  if (p?.nameEn) {
+    const name = isAr ? p.nameAr || p.nameEn : p.nameEn;
+    const displayPrice = p.discountPrice ?? p.priceRetail ?? 0;
+
+    productSchema = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name,
+      description: p.description || "",
+      sku: p.code,
+      mpn: p.code,
+      ...(p.brand && { brand: { "@type": "Brand", name: p.brand } }),
+      ...(Array.isArray(p.images) && p.images.length > 0 && { image: p.images }),
+      url: `${BASE_URL}/${locale}/products/${slug}`,
+      ...(p.category && {
+        category: isAr ? p.category.nameAr || p.category.name : p.category.name,
+      }),
+      offers: {
+        "@type": "Offer",
+        url: `${BASE_URL}/${locale}/products/${slug}`,
+        price: displayPrice,
+        priceCurrency: "EGP",
+        availability: p.inStock !== false ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+        seller: { "@type": "Organization", name: "City Tools", url: BASE_URL },
+        priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      },
+    };
+
+    breadcrumbSchema = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: isAr ? "الرئيسية" : "Home", item: `${BASE_URL}/${locale}` },
+        { "@type": "ListItem", position: 2, name: isAr ? "المنتجات" : "Products", item: `${BASE_URL}/${locale}/products` },
+        { "@type": "ListItem", position: 3, name, item: `${BASE_URL}/${locale}/products/${slug}` },
+      ],
+    };
+  }
+
+  return (
+    <>
+      {productSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        />
+      )}
+      {breadcrumbSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        />
+      )}
+      <ProductDetailView {...props} />
+    </>
+  );
 }
