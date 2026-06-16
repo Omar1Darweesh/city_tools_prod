@@ -37,6 +37,14 @@ const nextConfig: NextConfig = {
   },
   allowedDevOrigins: ["192.168.1.50", "192.168.6.140"],
   skipTrailingSlashRedirect: true,
+  async redirects() {
+    return [
+      { source: "/en/opengraph-image", destination: "/opengraph-image", permanent: true },
+      { source: "/ar/opengraph-image", destination: "/opengraph-image", permanent: true },
+      { source: "/en/twitter-image", destination: "/twitter-image", permanent: true },
+      { source: "/ar/twitter-image", destination: "/twitter-image", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {
