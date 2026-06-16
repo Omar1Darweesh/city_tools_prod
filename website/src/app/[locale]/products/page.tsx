@@ -1,16 +1,28 @@
 import { getTranslations } from "next-intl/server";
 import ProductsView from "./view";
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org";
+
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Products" });
-  const title = t("title");
-  const siteName = locale === "ar" ? "سيتي تولز" : "City Tools";
+  const isAr = locale === "ar";
+  const title = isAr
+    ? "جميع المنتجات | سيتي تولز"
+    : "All Products | City Tools";
+  const description = isAr
+    ? "تصفح مجموعتنا الكاملة من الأدوات والمعدات المهنية في سيتي تولز. أدوات كهربائية، يدوية، معدات بناء وأكثر."
+    : "Browse our full range of professional tools and equipment at City Tools. Power tools, hand tools, construction equipment and more.";
   return {
-    title: `${title} - ${siteName}`,
-    description: locale === "ar" ? "تصفح جميع المنتجات المتاحة في سيتي تولز" : "Browse all products available at City Tools",
-    openGraph: { title: `${title} - ${siteName}` },
-    alternates: { canonical: `/${locale}/products` },
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `${BASE_URL}/${locale}/products`,
+      images: [{ url: "/assets/CT Logo.png", width: 1200, height: 630, alt: isAr ? "سيتي تولز - المنتجات" : "City Tools - Products" }],
+    },
+    twitter: { card: "summary_large_image", title, description, images: ["/assets/CT Logo.png"] },
+    alternates: { canonical: `${BASE_URL}/${locale}/products` },
   };
 }
 

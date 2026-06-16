@@ -1,0 +1,26 @@
+{
+  "name": "City Tools | سيتي تولز",
+  "short_name": "City Tools",
+  "description": "Egypt's trusted store for professional tools & equipment. سيتي تولز - مصدرك الموثوق للأدوات والمعدات المهنية في مصر.",
+  "start_url": "/en",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a5f",
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/assets/CT Logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/CT Logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["shopping", "business"],
+  "scope": "/"
+}

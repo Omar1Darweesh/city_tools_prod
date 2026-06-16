@@ -28,6 +28,11 @@ const nextConfig: NextConfig = {
         hostname: "city-tools.lamarpos.cloud",
         pathname: "/uploads/**",
       },
+      {
+        protocol: "https",
+        hostname: "citytools.org",
+        pathname: "/uploads/**",
+      },
     ],
   },
   allowedDevOrigins: ["192.168.1.50", "192.168.6.140"],

@@ -1,14 +1,21 @@
 import { getTranslations } from "next-intl/server";
 import SupportView from "./view";
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org";
+
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
-  const siteName = locale === "ar" ? "سيتي تولز" : "City Tools";
+  const isAr = locale === "ar";
+  const siteName = isAr ? "سيتي تولز" : "City Tools";
+  const title = isAr ? `الدعم والمساعدة | ${siteName}` : `Support & Help | ${siteName}`;
+  const description = isAr
+    ? "تواصل مع فريق دعم سيتي تولز. نحن هنا للمساعدة في طلباتك واستفساراتك."
+    : "Contact City Tools support team. We're here to help with your orders and inquiries.";
   return {
-    title: locale === "ar" ? `الدعم - ${siteName}` : `Support - ${siteName}`,
-    description: locale === "ar" ? "صفحات الدعم والمساعدة في سيتي تولز" : "Support and help pages at City Tools",
-    openGraph: { title: locale === "ar" ? `الدعم - ${siteName}` : `Support - ${siteName}` },
-    alternates: { canonical: `/${locale}/support` },
+    title,
+    description,
+    openGraph: { title, description, url: `${BASE_URL}/${locale}/support` },
+    alternates: { canonical: `${BASE_URL}/${locale}/support` },
   };
 }
 

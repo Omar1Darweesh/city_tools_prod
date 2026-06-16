@@ -42,6 +42,7 @@ interface DisplayProduct {
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org";
 
 async function fetchProduct(slug: string): Promise<DisplayProduct | null> {
   try {
@@ -152,21 +153,33 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     setTimeout(() => setAdded(false), 1500);
   };
 
+  const productName = locale === "ar" ? product.nameAr || product.nameEn : product.nameEn;
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: locale === "ar" ? product.nameAr || product.nameEn : product.nameEn,
+    name: productName,
     description: product.description || "",
     sku: product.code,
-    brand: { "@type": "Brand", name: product.brand },
+    mpn: product.code,
+    brand: product.brand ? { "@type": "Brand", name: product.brand } : undefined,
+    image: images.length > 0 ? images : undefined,
+    url: `${SITE_URL}/${locale}/products/${product.code}`,
+    ...(product.category && {
+      category: locale === "ar" ? product.category.nameAr || product.category.name : product.category.name,
+    }),
     offers: {
       "@type": "Offer",
+      url: `${SITE_URL}/${locale}/products/${product.code}`,
       price: displayPrice,
       priceCurrency: "EGP",
       availability: product.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      seller: {
+        "@type": "Organization",
+        name: "City Tools",
+        url: SITE_URL,
+      },
+      priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     },
-    image: images.length > 0 ? images[0] : undefined,
-    ...(product.category && { category: locale === "ar" ? product.category.nameAr || product.category.name : product.category.name }),
   };
 
   return (
@@ -182,9 +195,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             "@context": "https://schema.org",
             "@type": "BreadcrumbList",
             itemListElement: [
-              { "@type": "ListItem", position: 1, name: isRtl ? "الرئيسية" : "Home", item: `${API_BASE.replace("/api", "")}/${locale}` },
-              { "@type": "ListItem", position: 2, name: isRtl ? "المنتجات" : "Products", item: `${API_BASE.replace("/api", "")}/${locale}/products` },
-              { "@type": "ListItem", position: 3, name: locale === "ar" ? product.nameAr || product.nameEn : product.nameEn },
+              { "@type": "ListItem", position: 1, name: isRtl ? "الرئيسية" : "Home", item: `${SITE_URL}/${locale}` },
+              { "@type": "ListItem", position: 2, name: isRtl ? "المنتجات" : "Products", item: `${SITE_URL}/${locale}/products` },
+              { "@type": "ListItem", position: 3, name: productName, item: `${SITE_URL}/${locale}/products/${product.code}` },
             ],
           }),
         }}

@@ -110,9 +110,9 @@ export default function CategoryDetailPage() {
             "@context": "https://schema.org",
             "@type": "BreadcrumbList",
             itemListElement: [
-              { "@type": "ListItem", position: 1, name: locale === "ar" ? "الرئيسية" : "Home", item: `${process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || ""}/${locale}` },
-              { "@type": "ListItem", position: 2, name: locale === "ar" ? "الأقسام" : "Categories", item: `${process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || ""}/${locale}/categories` },
-              { "@type": "ListItem", position: 3, name: catName },
+              { "@type": "ListItem", position: 1, name: locale === "ar" ? "الرئيسية" : "Home", item: `${process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org"}/${locale}` },
+              { "@type": "ListItem", position: 2, name: locale === "ar" ? "الأقسام" : "Categories", item: `${process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org"}/${locale}/categories` },
+              { "@type": "ListItem", position: 3, name: catName, item: `${process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org"}/${locale}/categories/${category!.slug}` },
             ],
           }),
         }}

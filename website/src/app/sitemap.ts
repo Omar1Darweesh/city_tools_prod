@@ -1,13 +1,14 @@
 import type { MetadataRoute } from "next";
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://citytools-eg.com";
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org";
+// Use internal API URL for server-side sitemap generation (avoids nginx round-trip)
+const API_BASE = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 const locales = ["en", "ar"] as const;
 
 async function fetchAllProducts(): Promise<{ code: string; updatedAt: string }[]> {
   try {
-    const res = await fetch(`${API_BASE}/store/products?limit=500`, { next: { revalidate: 3600 } });
+    const res = await fetch(`${API_BASE}/store/products?limit=1000`, { next: { revalidate: 3600 } });
     if (!res.ok) return [];
     const json = await res.json();
     return (json.data || []).map((p: any) => ({ code: p.code, updatedAt: p.updatedAt || p.createdAt || "" }));
@@ -32,23 +33,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const entries: MetadataRoute.Sitemap = [];
 
+  // Root redirect (e.g. citytools.org → citytools.org/en)
+  entries.push({ url: BASE_URL, lastModified: new Date(), changeFrequency: "weekly", priority: 1.0 });
+
   for (const locale of locales) {
     // Homepage
-    entries.push({ url: `${BASE_URL}/${locale}`, lastModified: new Date(), changeFrequency: "weekly", priority: 1.0 });
+    entries.push({
+      url: `${BASE_URL}/${locale}`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 1.0,
+    });
 
-    // Static pages
+    // Static indexable pages
     const staticPages = [
-      { path: "products", priority: 0.9 },
-      { path: "categories", priority: 0.8 },
-      { path: "cart", priority: 0.3 },
-      { path: "checkout", priority: 0.3 },
-      { path: "support", priority: 0.5 },
+      { path: "products", changeFrequency: "daily" as const, priority: 0.9 },
+      { path: "categories", changeFrequency: "weekly" as const, priority: 0.8 },
+      { path: "support", changeFrequency: "monthly" as const, priority: 0.5 },
     ];
     for (const page of staticPages) {
       entries.push({
         url: `${BASE_URL}/${locale}/${page.path}`,
         lastModified: new Date(),
-        changeFrequency: "weekly",
+        changeFrequency: page.changeFrequency,
         priority: page.priority,
       });
     }
@@ -69,7 +76,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         url: `${BASE_URL}/${locale}/products/${prod.code}`,
         lastModified: prod.updatedAt ? new Date(prod.updatedAt) : new Date(),
         changeFrequency: "weekly",
-        priority: 0.6,
+        priority: 0.65,
       });
     }
   }
