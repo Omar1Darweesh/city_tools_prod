@@ -4,6 +4,8 @@ import ProductDetailView from "./view";
 import { fetchStoreProduct } from "@/lib/product";
 import { DEFAULT_OG_IMAGE, DEFAULT_OG_IMAGE_META } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
+
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org";
 
 const getProduct = cache(fetchStoreProduct);

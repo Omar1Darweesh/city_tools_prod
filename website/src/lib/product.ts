@@ -30,6 +30,32 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
   "http://127.0.0.1:3021/api";
 
+/** Normalize product.images from API/Prisma (array, JSON string, or single URL). */
+export function parseProductImages(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+  }
+  if (typeof raw === "string") {
+    const text = raw.trim();
+    if (!text) return [];
+    if (text.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(text) as unknown;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+        }
+      } catch {
+        /* single URL below */
+      }
+    }
+    if (text.includes("||")) {
+      return text.split("||").map((s) => s.trim()).filter(Boolean);
+    }
+    return [text];
+  }
+  return [];
+}
+
 export function normalizeProduct(raw: unknown): DisplayProduct | null {
   const p = raw as Record<string, unknown> | null;
   if (!p || !p.id || !p.nameEn) return null;
@@ -45,7 +71,7 @@ export function normalizeProduct(raw: unknown): DisplayProduct | null {
     categoryId: Number(p.categoryId),
     brand: String(p.brand || ""),
     description: String(p.description || ""),
-    images: Array.isArray(p.images) ? (p.images as string[]).filter(Boolean) : [],
+    images: parseProductImages(p.images),
     rating: Number(p.rating || 0),
     inStock: Boolean(p.inStock ?? ((p.availableStock ?? p.stock ?? 0) as number) > 0),
     stock: Number(p.availableStock ?? p.stock ?? 0),
@@ -81,7 +107,7 @@ export function normalizeProduct(raw: unknown): DisplayProduct | null {
 export async function fetchStoreProduct(slug: string): Promise<DisplayProduct | null> {
   try {
     const res = await fetch(`${API_BASE}/store/products/${encodeURIComponent(slug)}`, {
-      next: { revalidate: 3600 },
+      cache: "no-store",
     });
     if (!res.ok) return null;
     const json = await res.json();

@@ -11,18 +11,36 @@ import {
   Check, ChevronLeft, ChevronRight,
   AlertTriangle, Layers
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "@/components/cart/cart-context";
 import type { DisplayProduct } from "@/lib/product";
+import { store } from "@/data";
 
-export default function ProductDetailPage({ product }: { product: DisplayProduct }) {
+export default function ProductDetailPage({ product: initialProduct }: { product: DisplayProduct }) {
   const t = useTranslations("Product");
   const locale = useLocale();
   const { addItem } = useCart();
 
+  const [product, setProduct] = useState(initialProduct);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [imgIndex, setImgIndex] = useState(0);
+
+  useEffect(() => {
+    setProduct(initialProduct);
+    setImgIndex(0);
+  }, [initialProduct]);
+
+  // Fallback: refresh images client-side if SSR/cache missed them
+  useEffect(() => {
+    if (initialProduct.images.length > 0) return;
+    const slug = initialProduct.code || String(initialProduct.id);
+    store.getProductByCode(slug).then((fresh) => {
+      if (fresh?.images?.length) {
+        setProduct((prev) => ({ ...prev, images: fresh.images }));
+      }
+    });
+  }, [initialProduct]);
 
   const isRtl = locale === "ar";
   const images = product.images.length ? product.images : [];

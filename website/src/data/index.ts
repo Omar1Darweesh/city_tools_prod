@@ -21,7 +21,23 @@ function mapProduct(p: any): MockProduct { // eslint-disable-line @typescript-es
     itemTypeId: p.itemTypeId ?? undefined,
     brand: p.brand,
     description: p.description || "",
-    images: p.images || [],
+    images: (() => {
+      const raw = p.images;
+      if (Array.isArray(raw)) return raw.filter(Boolean);
+      if (typeof raw === "string" && raw.trim()) {
+        if (raw.includes("||")) return raw.split("||").map((s) => s.trim()).filter(Boolean);
+        if (raw.startsWith("[")) {
+          try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed.filter(Boolean) : [raw];
+          } catch {
+            return [raw];
+          }
+        }
+        return [raw];
+      }
+      return [];
+    })(),
     rating: p.rating || 0,
     inStock: p.inStock ?? true,
     stock: p.stock ?? (p.inStock ? 999 : 0),
