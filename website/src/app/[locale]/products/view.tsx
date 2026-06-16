@@ -22,6 +22,7 @@ function ProductsContent() {
 
   const query = searchParams.get("search") || "";
   const categoryParam = searchParams.get("categoryId");
+  const subcategoryParam = searchParams.get("subcategoryId");
   const brandParam = searchParams.get("brand") || "";
 
   const [searchInput, setSearchInput] = useState(query);
@@ -32,7 +33,9 @@ function ProductsContent() {
     categoryParam ? Number(categoryParam) : undefined
   );
   const [filterBrand, setFilterBrand] = useState<string | undefined>(brandParam || undefined);
-  const [filterSubcategory, setFilterSubcategory] = useState<number | undefined>(undefined);
+  const [filterSubcategory, setFilterSubcategory] = useState<number | undefined>(
+    subcategoryParam ? Number(subcategoryParam) : undefined
+  );
   const [filterItemType, setFilterItemType] = useState<number | undefined>(undefined);
   const [filterPopular, setFilterPopular] = useState(false);
   const [filterBestSale, setFilterBestSale] = useState(false);
@@ -74,6 +77,11 @@ function ProductsContent() {
   useEffect(() => {
     (selectedCategory ? store.getSubcategories(selectedCategory) : store.getSubcategories()).then(setSubcats);
   }, [selectedCategory]);
+  useEffect(() => {
+    if (!filterSubcategory || selectedCategory) return;
+    const sub = subcats.find((s) => s.id === filterSubcategory);
+    if (sub) setSelectedCategory(sub.categoryId);
+  }, [filterSubcategory, selectedCategory, subcats]);
   useEffect(() => {
     (filterSubcategory ? store.getItemTypes(filterSubcategory) : store.getItemTypes()).then(setItemTypes);
   }, [filterSubcategory]);

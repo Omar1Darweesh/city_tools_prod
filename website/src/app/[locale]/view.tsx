@@ -8,7 +8,7 @@ import ProductImage from "@/components/products/product-image";
 import Image from "next/image";
 import { ShoppingCart, Star, Check, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, Zap, Wrench, Shield, Truck, BadgePercent, HeadphonesIcon, Package, Bolt, Droplets, Factory, Settings, Toolbox, DollarSign } from "lucide-react";
 import { useCart } from "@/components/cart/cart-context";
-import type { MockProduct, MockCategory, MockBrand, MockStatistic, MockDiscountCard } from "@/data";
+import type { MockProduct, MockCategory, MockSubcategory, MockBrand, MockStatistic, MockDiscountCard } from "@/data";
 
 /* ─── helpers ─── */
 function useReveal() {
@@ -70,6 +70,22 @@ const ICON_COMPONENT: Record<string, React.ReactNode> = {
 function getCatIcon(cat: MockCategory): React.ReactNode {
   const key = cat.icon ? cat.icon.charAt(0).toUpperCase() + cat.icon.slice(1) : "";
   return ICON_COMPONENT[key] || <Package className="size-7 text-white" />;
+}
+
+const SUBCAT_ICON_KEYS = ["Wrench", "Zap", "Bolt", "Droplets", "Shield", "Factory", "Package", "Settings", "Toolbox"];
+const SUBCAT_COLORS = ["#f97316", "#22c55e", "#eab308", "#06b6d4", "#ef4444", "#8b5cf6", "#ec4899", "#3b82f6"];
+
+function getSubcatIcon(index: number): React.ReactNode {
+  const key = SUBCAT_ICON_KEYS[index % SUBCAT_ICON_KEYS.length];
+  return ICON_COMPONENT[key] || <Package className="size-7 text-white" />;
+}
+
+function getCategoryLogo(cat: MockCategory, logoByName: Map<string, string>): string | null {
+  const logo =
+    logoByName.get(cat.name.toLowerCase()) ||
+    logoByName.get((cat.nameAr || "").toLowerCase()) ||
+    null;
+  return resolveBrandLogo(logo);
 }
 
 function resolveBrandLogo(logo?: string | null): string | null {
@@ -324,7 +340,8 @@ const TRUST_ICONS: Record<string, React.ComponentType<any>> = {
 export default function HomePage() {
   const locale = useLocale();
   const [cats, setCats] = useState<MockCategory[]>([]);
-  const [brands, setBrands] = useState<MockBrand[]>([]);
+  const [subcats, setSubcats] = useState<MockSubcategory[]>([]);
+  const [brandLogos, setBrandLogos] = useState<MockBrand[]>([]);
   const [statistics, setStatistics] = useState<MockStatistic[]>([]);
   const [discountCards, setDiscountCards] = useState<MockDiscountCard[]>([]);
   const [bestSellers, setBestSellers] = useState<MockProduct[]>([]);
@@ -336,7 +353,8 @@ export default function HomePage() {
 
   useEffect(() => {
     store.getCategories().then(setCats);
-    store.getTrustedBrands().then(setBrands);
+    store.getSubcategories().then(setSubcats);
+    store.getTrustedBrands().then(setBrandLogos);
     store.getActiveStatistics().then(setStatistics);
     store.getActiveDiscountCards().then(setDiscountCards);
     store.getBestSellingProducts().then(setBestSellers);
@@ -357,6 +375,21 @@ export default function HomePage() {
     }, 5000);
     return () => clearInterval(timer);
   }, [activeDiscountCards.length]);
+
+  const logoByName = new Map<string, string>();
+  for (const b of brandLogos) {
+    if (b.logo) {
+      logoByName.set(b.name.toLowerCase(), b.logo);
+      if (b.nameAr) logoByName.set(b.nameAr.toLowerCase(), b.logo);
+    }
+  }
+
+  const marqueeBrands = brandLogos.length > 0 ? brandLogos : cats.map((c) => ({
+    id: c.id,
+    name: c.name,
+    nameAr: c.nameAr,
+    productCount: c.productCount,
+  }));
 
   return (
     <div className="flex flex-col min-h-screen" dir={isRtl ? "rtl" : "ltr"}>
@@ -398,62 +431,11 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* BRANDS */}
+      {/* ماركات — level 1 (categories: APT, TOTAL, …) */}
       <section className="bg-background py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <Reveal>
-            <SectionTitle ar="تسوق من أهم الماركات" en="Shop by Brand" link="/products" locale={locale} />
-          </Reveal>
-          <Reveal delay={100}>
-            <CircleScroller>
-              {brands.length === 0 ? (
-                <div className="flex gap-4 text-sm text-muted-foreground py-4">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="flex flex-col items-center gap-2 animate-pulse">
-                      <div className="size-20 sm:size-24 rounded-full bg-muted" />
-                      <div className="h-3 w-16 rounded bg-muted" />
-                    </div>
-                  ))}
-                </div>
-              ) : brands.map((brand, i) => {
-                const logoSrc = resolveBrandLogo(brand.logo);
-                const label = isRtl ? brand.nameAr || brand.name : brand.name;
-                return (
-                  <Link
-                    key={String(brand.id)}
-                    href={`/products?brand=${encodeURIComponent(brand.name)}`}
-                    className="category-circle snap-start flex-shrink-0 flex flex-col items-center gap-2 group"
-                    style={{ animationDelay: `${i * 60}ms` }}
-                  >
-                    <div className="circle-ring size-20 sm:size-24 rounded-full border-2 border-transparent p-1 transition-all duration-300 group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/20">
-                      <div className="size-full rounded-full flex items-center justify-center shadow-md bg-white border border-border overflow-hidden p-3">
-                        {logoSrc ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={logoSrc} alt={label} className="size-full object-contain" />
-                        ) : (
-                          <span className="text-sm font-black uppercase text-muted-foreground tracking-tight">
-                            {brand.name.slice(0, 3)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <span className="text-xs font-semibold text-center text-foreground group-hover:text-primary transition-colors">
-                      {label}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">{brand.productCount} {isRtl ? "منتج" : "items"}</span>
-                  </Link>
-                );
-              })}
-            </CircleScroller>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* CATEGORIES */}
-      <section className="bg-muted/40 py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <Reveal>
-            <SectionTitle ar="تسوق من أهم الفئات" en="Shop by Category" link="/categories" locale={locale} />
+            <SectionTitle ar="تسوق من أهم الماركات" en="Shop by Brand" link="/categories" locale={locale} />
           </Reveal>
           <Reveal delay={100}>
             <CircleScroller>
@@ -466,19 +448,83 @@ export default function HomePage() {
                     </div>
                   ))}
                 </div>
-              ) : cats.map((cat, i) => (
-                <Link key={cat.id} href={`/categories/${cat.slug}`} className="category-circle snap-start flex-shrink-0 flex flex-col items-center gap-2 group" style={{ animationDelay: `${i * 60}ms` }}>
-                  <div className="circle-ring size-20 sm:size-24 rounded-full border-2 border-transparent p-1 transition-all duration-300 group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/20">
-                    <div className="size-full rounded-full flex items-center justify-center shadow-md" style={{ background: `linear-gradient(135deg, ${cat.color || "#6b7280"}, ${cat.color ? cat.color + "99" : "#9ca3af"})` }}>
-                      {getCatIcon(cat)}
+              ) : cats.map((cat, i) => {
+                const logoSrc = getCategoryLogo(cat, logoByName);
+                const label = isRtl ? cat.nameAr || cat.name : cat.name;
+                return (
+                  <Link
+                    key={cat.id}
+                    href={`/categories/${cat.slug}`}
+                    className="category-circle snap-start flex-shrink-0 flex flex-col items-center gap-2 group"
+                    style={{ animationDelay: `${i * 60}ms` }}
+                  >
+                    <div className="circle-ring size-20 sm:size-24 rounded-full border-2 border-transparent p-1 transition-all duration-300 group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/20">
+                      <div className="size-full rounded-full flex items-center justify-center shadow-md bg-white border border-border overflow-hidden p-3">
+                        {logoSrc ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={logoSrc} alt={label} className="size-full object-contain" />
+                        ) : (
+                          <span className="text-sm font-black uppercase text-muted-foreground tracking-tight">
+                            {cat.name.slice(0, 3)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <span className="text-xs font-semibold text-center text-foreground group-hover:text-primary transition-colors">
-                    {isRtl ? cat.nameAr : cat.name}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">{cat.productCount} {isRtl ? "منتج" : "items"}</span>
-                </Link>
-              ))}
+                    <span className="text-xs font-semibold text-center text-foreground group-hover:text-primary transition-colors">
+                      {label}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{cat.productCount} {isRtl ? "منتج" : "items"}</span>
+                  </Link>
+                );
+              })}
+            </CircleScroller>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* فئات — level 2 (subcategories: يدوي, كهربائي, …) */}
+      <section className="bg-muted/40 py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionTitle ar="تسوق من أهم الفئات" en="Shop by Type" link="/products" locale={locale} />
+          </Reveal>
+          <Reveal delay={100}>
+            <CircleScroller>
+              {subcats.length === 0 ? (
+                <div className="flex gap-4 text-sm text-muted-foreground py-4">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2 animate-pulse">
+                      <div className="size-20 sm:size-24 rounded-full bg-muted" />
+                      <div className="h-3 w-16 rounded bg-muted" />
+                    </div>
+                  ))}
+                </div>
+              ) : subcats.map((sub, i) => {
+                const parent = cats.find((c) => c.id === sub.categoryId);
+                const color = parent?.color || SUBCAT_COLORS[i % SUBCAT_COLORS.length];
+                const label = isRtl ? sub.nameAr || sub.name : sub.name;
+                return (
+                  <Link
+                    key={sub.id}
+                    href={`/products?subcategoryId=${sub.id}`}
+                    className="category-circle snap-start flex-shrink-0 flex flex-col items-center gap-2 group"
+                    style={{ animationDelay: `${i * 60}ms` }}
+                  >
+                    <div className="circle-ring size-20 sm:size-24 rounded-full border-2 border-transparent p-1 transition-all duration-300 group-hover:border-primary group-hover:shadow-lg group-hover:shadow-primary/20">
+                      <div
+                        className="size-full rounded-full flex items-center justify-center shadow-md"
+                        style={{ background: `linear-gradient(135deg, ${color}, ${color}99)` }}
+                      >
+                        {getSubcatIcon(i)}
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-center text-foreground group-hover:text-primary transition-colors">
+                      {label}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{sub.productCount} {isRtl ? "منتج" : "items"}</span>
+                  </Link>
+                );
+              })}
             </CircleScroller>
           </Reveal>
         </div>
@@ -584,12 +630,12 @@ export default function HomePage() {
             <SectionTitle ar="الماركات المعتمدة" en="Our Trusted Brands" locale={locale} />
           </Reveal>
         </div>
-        {brands.length > 0 && (
+        {marqueeBrands.length > 0 && (
           <div className="marquee-wrapper relative overflow-hidden">
-            <div className={`flex gap-5 ${isRtl ? "animate-marquee-rtl" : "animate-marquee"}`} style={{ width: "fit-content", "--marquee-repeat": Math.max(2, Math.ceil(8 / brands.length)) } as React.CSSProperties}>
-              {[...Array(Math.max(2, Math.ceil(8 / brands.length)))].map((_, copy) => (
+            <div className={`flex gap-5 ${isRtl ? "animate-marquee-rtl" : "animate-marquee"}`} style={{ width: "fit-content", "--marquee-repeat": Math.max(2, Math.ceil(8 / marqueeBrands.length)) } as React.CSSProperties}>
+              {[...Array(Math.max(2, Math.ceil(8 / marqueeBrands.length)))].map((_, copy) => (
                 <div key={copy} className="flex gap-5 shrink-0">
-                  {brands.map((b, i) => (
+                  {marqueeBrands.map((b, i) => (
                     <div key={`${b.id}-${i}-${copy}`} className="flex h-14 min-w-[120px] items-center justify-center rounded-2xl border border-border bg-card px-6 text-sm font-bold text-muted-foreground hover:border-primary hover:text-primary transition-all cursor-default shadow-sm">
                       {b.name}
                     </div>
