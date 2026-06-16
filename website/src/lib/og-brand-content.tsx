@@ -1,4 +1,5 @@
 import { BRAND } from "@/lib/og-brand-image";
+import { satoriArabic } from "@/lib/satori-arabic";
 
 type BrandOgContentProps = {
   logoSrc: string;
@@ -8,6 +9,10 @@ type BrandOgContentProps = {
 export function BrandOgContent({ logoSrc, compact = false }: BrandOgContentProps) {
   const logoHeight = compact ? 118 : 138;
   const logoWidth = compact ? 220 : 260;
+
+  const arabicTitle = satoriArabic("سيتي تولز");
+  const arabicTagline1 = satoriArabic("مصدرك الموثوق للأدوات والمعدات");
+  const arabicTagline2 = satoriArabic("الاحترافية في مصر");
 
   return (
     <div
@@ -92,9 +97,10 @@ export function BrandOgContent({ logoSrc, compact = false }: BrandOgContentProps
                 fontSize: compact ? 44 : 52,
                 fontWeight: 700,
                 color: "white",
+                lineHeight: 1.2,
               }}
             >
-              سيتي تولز
+              {arabicTitle}
             </span>
             <div
               style={{
@@ -137,9 +143,22 @@ export function BrandOgContent({ logoSrc, compact = false }: BrandOgContentProps
               fontWeight: 400,
               color: "rgba(255,255,255,0.45)",
               textAlign: "center",
+              lineHeight: 1.5,
             }}
           >
-            مصدرك الموثوق للأدوات والمعدات الاحترافية في مصر
+            {arabicTagline1}
+          </span>
+          <span
+            style={{
+              fontFamily: "NotoArabic",
+              fontSize: compact ? 17 : 20,
+              fontWeight: 400,
+              color: "rgba(255,255,255,0.45)",
+              textAlign: "center",
+              lineHeight: 1.5,
+            }}
+          >
+            {arabicTagline2}
           </span>
         </div>
       </div>
