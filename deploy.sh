@@ -127,7 +127,7 @@ cat > "$APP_DIR/backend/.env" <<ENV
 PORT=$BACKEND_PORT
 HOST=0.0.0.0
 JWT_SECRET="$JWT_SECRET"
-JWT_EXPIRES_IN="1h"
+JWT_EXPIRES_IN="7h"
 REFRESH_TOKEN_EXPIRES_IN="7d"
 FRONTEND_URL=https://$DOMAIN
 
@@ -247,10 +247,15 @@ server {
     }
 }
 
-# CityTools POS Client (cashier screen) — port 8091
+# CityTools POS Client (cashier screen) — port 8091 (HTTPS)
 server {
-    listen 8091;
+    listen 8091 ssl;
     server_name citytools.lamarpos.cloud;
+
+    ssl_certificate /etc/letsencrypt/live/citytools.lamarpos.cloud/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/citytools.lamarpos.cloud/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     location / {
         root /root/citytools/pos-client/dist;
@@ -293,7 +298,7 @@ if command -v ufw &>/dev/null; then
     sudo ufw allow 22/tcp    # SSH
     sudo ufw allow 80/tcp    # Backoffice HTTP
     sudo ufw allow 443/tcp   # Backoffice HTTPS
-    sudo ufw allow 8090/tcp  # POS Client
+    sudo ufw allow 8091/tcp   # POS Client
     sudo ufw --force enable
     echo "Firewall updated."
 else
@@ -308,12 +313,30 @@ npx ts-node --transpile-only prisma/seed.ts
 echo "Database seeded."
 
 echo ""
+echo "--- Step 11b: Creating default permissions ---"
+
+sudo -u postgres psql -d $DB_NAME <<SQL
+INSERT INTO permissions (name, description)
+VALUES
+    ('products:create', 'صلاحية إضافة منتجات جديدة'),
+    ('products:edit', 'صلاحية تعديل المنتجات'),
+    ('products:delete', 'صلاحية حذف المنتجات')
+ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT 1, id FROM permissions WHERE name NOT LIKE 'platform:%'
+ON CONFLICT DO NOTHING;
+SQL
+
+echo "Default permissions created."
+
+echo ""
 echo "============================================"
 echo "   Deployment Complete!"
 echo "============================================"
 echo ""
 echo "  Backoffice (admin): https://$DOMAIN"
-echo "  POS Client:         http://$DOMAIN:8090"
+echo "  POS Client:         https://$DOMAIN:8091"
 echo "  API:                https://$DOMAIN/api"
 echo ""
 echo "  pm2 status              -- check backend"

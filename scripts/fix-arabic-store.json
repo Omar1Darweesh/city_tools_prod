@@ -1,0 +1,30 @@
+{
+  "statistics": [
+    { "id": 1, "value": "1000+", "labelEn": "Products", "labelAr": "منتج", "sortOrder": 1, "isActive": true },
+    { "id": 2, "value": "500+", "labelEn": "Happy Customers", "labelAr": "عميل سعيد", "sortOrder": 2, "isActive": true },
+    { "id": 3, "value": "15+", "labelEn": "Years Experience", "labelAr": "سنة خبرة", "sortOrder": 3, "isActive": true },
+    { "id": 4, "value": "24/7", "labelEn": "Support", "labelAr": "دعم فني", "sortOrder": 4, "isActive": true }
+  ],
+  "trustFeatures": [
+    { "id": 1, "icon": "Shield", "titleEn": "Genuine Products", "titleAr": "منتجات أصلية", "subtitleEn": "100% authentic tools from trusted brands", "subtitleAr": "أدوات أصلية 100% من ماركات موثوقة", "sortOrder": 1, "isActive": true },
+    { "id": 2, "icon": "Truck", "titleEn": "Fast Delivery", "titleAr": "توصيل سريع", "subtitleEn": "Delivery across Cairo & Giza within 24-48h", "subtitleAr": "توصيل داخل القاهرة والجيزة خلال 24-48 ساعة", "sortOrder": 2, "isActive": true },
+    { "id": 3, "icon": "CreditCard", "titleEn": "Secure Payment", "titleAr": "دفع آمن", "subtitleEn": "Cash on delivery & secure online payment", "subtitleAr": "الدفع عند الاستلام وطرق دفع آمنة", "sortOrder": 3, "isActive": true },
+    { "id": 4, "icon": "Headphones", "titleEn": "Expert Support", "titleAr": "دعم متخصص", "subtitleEn": "Technical advice from our tool specialists", "subtitleAr": "استشارات فنية من متخصصي الأدوات", "sortOrder": 4, "isActive": true }
+  ],
+  "discountCards": [
+    { "id": 1, "badgeEn": "Hot Deal", "badgeAr": "عرض ساخن", "titleEn": "Power Tools Sale", "titleAr": "خصم على الأدوات الكهربائية", "descEn": "Up to 25% off on drills, grinders & more", "descAr": "خصم حتى 25% على المثاقب والصاروخ وغيرها", "linkUrl": "/products?category=total", "linkLabelEn": "Shop Now", "linkLabelAr": "تسوق الآن", "bgColor": "#C0161B", "bgImage": "/assets/discountCards/11.jpg", "sortOrder": 1, "isActive": true },
+    { "id": 2, "badgeEn": "New", "badgeAr": "جديد", "titleEn": "Wholesale Prices", "titleAr": "أسعار الجملة", "descEn": "Special rates for contractors & bulk orders", "descAr": "أسعار خاصة للمقاولين والطلبات بالجملة", "linkUrl": "/products", "linkLabelEn": "View Products", "linkLabelAr": "عرض المنتجات", "bgColor": "#1a2535", "bgImage": "/assets/discountCards/12.jpg", "sortOrder": 2, "isActive": true },
+    { "id": 3, "badgeEn": "Limited", "badgeAr": "محدود", "titleEn": "Free Delivery", "titleAr": "توصيل مجاني", "descEn": "Free delivery on orders over 2000 EGP in Cairo", "descAr": "توصيل مجاني للطلبات فوق 2000 جنيه داخل القاهرة", "linkUrl": "/products", "linkLabelEn": "Order Now", "linkLabelAr": "اطلب الآن", "bgColor": "#2563eb", "bgImage": "/assets/discountCards/13.jpg", "sortOrder": 3, "isActive": true }
+  ],
+  "deliveryZones": [
+    { "id": 1, "name": "Cairo - Downtown", "nameAr": "القاهرة - وسط البلد", "fee": 50, "active": true, "sortOrder": 1 },
+    { "id": 2, "name": "Cairo - Nasr City", "nameAr": "القاهرة - مدينة نصر", "fee": 60, "active": true, "sortOrder": 2 },
+    { "id": 3, "name": "Giza", "nameAr": "الجيزة", "fee": 70, "active": true, "sortOrder": 3 },
+    { "id": 4, "name": "6th of October", "nameAr": "6 أكتوبر", "fee": 80, "active": true, "sortOrder": 4 },
+    { "id": 5, "name": "Alexandria", "nameAr": "الإسكندرية", "fee": 120, "active": true, "sortOrder": 5 }
+  ],
+  "heroSlides": [
+    { "id": 1, "bgImg": "/assets/1.jpg", "tagEn": "City Tools", "tagAr": "سيتي تولز", "titleEn": "Professional Power Tools", "titleAr": "أدوات كهربائية احترافية", "subEn": "Best prices in Egypt", "subAr": "أفضل الأسعار في مصر", "accent": "#C0161B", "sortOrder": 1, "isActive": true },
+    { "id": 2, "bgImg": "/assets/2.jpg", "tagEn": "Sale", "tagAr": "تخفيضات", "titleEn": "Up to 25% Off", "titleAr": "خصم حتى 25%", "subEn": "On selected TOTAL & APT tools", "subAr": "على أدوات TOTAL و APT", "accent": "#2563eb", "sortOrder": 2, "isActive": true }
+  ]
+}
