@@ -12,6 +12,7 @@ import {
   AlertTriangle, Layers
 } from "lucide-react";
 import { useState, useEffect, use } from "react";
+import { notFound } from "next/navigation";
 import { useCart } from "@/components/cart/cart-context";
 
 interface DisplayProduct {
@@ -42,7 +43,6 @@ interface DisplayProduct {
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org";
 
 async function fetchProduct(slug: string): Promise<DisplayProduct | null> {
   try {
@@ -122,16 +122,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
   // ── Not found ───────────────────────────────────────────────
   if (!product) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
-        <Package className="size-20 text-muted-foreground/20 mb-4" />
-        <h2 className="text-2xl font-bold">{t("notFound")}</h2>
-        <p className="mt-2 text-sm text-muted-foreground max-w-sm">{t("notFoundDesc")}</p>
-        <Button className="mt-6 rounded-full" asChild>
-          <Link href="/products">{isRtl ? "تصفح المنتجات" : "Browse Products"}</Link>
-        </Button>
-      </div>
-    );
+    notFound();
   }
 
   const images = product.images?.length ? product.images : [];
@@ -154,54 +145,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   };
 
   const productName = locale === "ar" ? product.nameAr || product.nameEn : product.nameEn;
-  const productSchema = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: productName,
-    description: product.description || "",
-    sku: product.code,
-    mpn: product.code,
-    brand: product.brand ? { "@type": "Brand", name: product.brand } : undefined,
-    image: images.length > 0 ? images : undefined,
-    url: `${SITE_URL}/${locale}/products/${product.code}`,
-    ...(product.category && {
-      category: locale === "ar" ? product.category.nameAr || product.category.name : product.category.name,
-    }),
-    offers: {
-      "@type": "Offer",
-      url: `${SITE_URL}/${locale}/products/${product.code}`,
-      price: displayPrice,
-      priceCurrency: "EGP",
-      availability: product.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-      seller: {
-        "@type": "Organization",
-        name: "City Tools",
-        url: SITE_URL,
-      },
-      priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    },
-  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
-            itemListElement: [
-              { "@type": "ListItem", position: 1, name: isRtl ? "الرئيسية" : "Home", item: `${SITE_URL}/${locale}` },
-              { "@type": "ListItem", position: 2, name: isRtl ? "المنتجات" : "Products", item: `${SITE_URL}/${locale}/products` },
-              { "@type": "ListItem", position: 3, name: productName, item: `${SITE_URL}/${locale}/products/${product.code}` },
-            ],
-          }),
-        }}
-      />
       {/* Breadcrumb */}
       <nav className="mb-6 text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
         <Link href="/" className="hover:text-foreground transition-colors">

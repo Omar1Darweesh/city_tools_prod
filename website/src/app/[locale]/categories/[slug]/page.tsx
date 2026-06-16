@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import CategoryDetailView from "./view";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -42,18 +43,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     }
   } catch {}
 
-  const fallbackTitle = isAr ? `الأقسام | ${siteName}` : `Categories | ${siteName}`;
-  return {
-    title: fallbackTitle,
-    alternates: {
-      canonical: `${BASE_URL}/${locale}/categories/${slug}`,
-      languages: {
-        en: `${BASE_URL}/en/categories/${slug}`,
-        ar: `${BASE_URL}/ar/categories/${slug}`,
-        "x-default": `${BASE_URL}/en/categories/${slug}`,
-      },
-    },
-  };
+  notFound();
 }
 
 async function fetchCategory(slug: string) {
@@ -72,10 +62,12 @@ export default async function Page(props: any) {
   const isAr = locale === "ar";
   const c = await fetchCategory(slug);
 
-  let breadcrumbSchema = null;
-  if (c?.name) {
-    const name = isAr ? c.nameAr || c.name : c.name;
-    breadcrumbSchema = {
+  if (!c?.name) {
+    notFound();
+  }
+
+  const name = isAr ? c.nameAr || c.name : c.name;
+  const breadcrumbSchema = {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
@@ -83,17 +75,14 @@ export default async function Page(props: any) {
         { "@type": "ListItem", position: 2, name: isAr ? "الأقسام" : "Categories", item: `${BASE_URL}/${locale}/categories` },
         { "@type": "ListItem", position: 3, name, item: `${BASE_URL}/${locale}/categories/${slug}` },
       ],
-    };
-  }
+  };
 
   return (
     <>
-      {breadcrumbSchema && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
-        />
-      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
       <CategoryDetailView {...props} />
     </>
   );

@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import ProductDetailView from "./view";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -69,18 +70,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     }
   } catch {}
 
-  const fallbackTitle = isAr ? `منتج | ${siteName}` : `Product | ${siteName}`;
-  return {
-    title: fallbackTitle,
-    alternates: {
-      canonical: `${BASE_URL}/${locale}/products/${slug}`,
-      languages: {
-        en: `${BASE_URL}/en/products/${slug}`,
-        ar: `${BASE_URL}/ar/products/${slug}`,
-        "x-default": `${BASE_URL}/en/products/${slug}`,
-      },
-    },
-  };
+  notFound();
 }
 
 export default async function Page(props: any) {
@@ -88,14 +78,14 @@ export default async function Page(props: any) {
   const isAr = locale === "ar";
   const p = await fetchProduct(slug);
 
-  let productSchema = null;
-  let breadcrumbSchema = null;
+  if (!p?.nameEn) {
+    notFound();
+  }
 
-  if (p?.nameEn) {
-    const name = isAr ? p.nameAr || p.nameEn : p.nameEn;
-    const displayPrice = p.discountPrice ?? p.priceRetail ?? 0;
+  const name = isAr ? p.nameAr || p.nameEn : p.nameEn;
+  const displayPrice = p.discountPrice ?? p.priceRetail ?? 0;
 
-    productSchema = {
+  const productSchema = {
       "@context": "https://schema.org",
       "@type": "Product",
       name,
@@ -116,10 +106,10 @@ export default async function Page(props: any) {
         availability: p.inStock !== false ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
         seller: { "@type": "Organization", name: "City Tools", url: BASE_URL },
         priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      },
-    };
+    },
+  };
 
-    breadcrumbSchema = {
+  const breadcrumbSchema = {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
@@ -127,23 +117,18 @@ export default async function Page(props: any) {
         { "@type": "ListItem", position: 2, name: isAr ? "المنتجات" : "Products", item: `${BASE_URL}/${locale}/products` },
         { "@type": "ListItem", position: 3, name, item: `${BASE_URL}/${locale}/products/${slug}` },
       ],
-    };
-  }
+  };
 
   return (
     <>
-      {productSchema && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
-        />
-      )}
-      {breadcrumbSchema && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
-        />
-      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
       <ProductDetailView {...props} />
     </>
   );

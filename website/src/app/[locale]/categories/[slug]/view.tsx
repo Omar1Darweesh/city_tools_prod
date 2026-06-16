@@ -99,24 +99,8 @@ export default function CategoryDetailPage() {
     { label: locale === "ar" ? category!.nameAr : category!.name },
   ];
 
-  const catName = locale === "ar" ? category!.nameAr : category!.name;
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
-            itemListElement: [
-              { "@type": "ListItem", position: 1, name: locale === "ar" ? "الرئيسية" : "Home", item: `${process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org"}/${locale}` },
-              { "@type": "ListItem", position: 2, name: locale === "ar" ? "الأقسام" : "Categories", item: `${process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org"}/${locale}/categories` },
-              { "@type": "ListItem", position: 3, name: catName, item: `${process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org"}/${locale}/categories/${category!.slug}` },
-            ],
-          }),
-        }}
-      />
       <Breadcrumb items={breadcrumbItems} locale={locale} />
 
       <div className="mb-8">
