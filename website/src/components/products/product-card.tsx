@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/components/cart/cart-context";
 import ProductImage from "@/components/products/product-image";
+import { productDetailPath } from "@/lib/product-url";
 import { ShoppingCart, Star, Check } from "lucide-react";
 import { useState } from "react";
 
@@ -32,7 +33,7 @@ export function ProductCard({ product, locale }: { product: MockProduct; locale:
 
   return (
       <div className="group relative overflow-hidden rounded-lg border bg-card transition-all duration-200 hover:shadow-sm">
-      <Link href={`/products/${product.code || product.id}`} className="block">
+      <Link href={productDetailPath(product)} className="block">
         <div className="aspect-[3/2] relative overflow-hidden">
           {product.images?.[0] ? (
             <ProductImage src={product.images[0]} alt={productName} fill className="object-cover" sizes="(max-width: 640px) 50vw, 200px" loading="lazy" />
@@ -60,7 +61,7 @@ export function ProductCard({ product, locale }: { product: MockProduct; locale:
         </div>
       </Link>
       <div className="p-2">
-        <Link href={`/products/${product.code || product.id}`}>
+        <Link href={productDetailPath(product)}>
           <p className="text-[9px] text-muted-foreground truncate">{product.brand}</p>
           <h3 className="font-medium line-clamp-2 text-[11px] leading-tight group-hover:text-primary transition-colors">
             {locale === "ar" ? product.nameAr : product.nameEn}

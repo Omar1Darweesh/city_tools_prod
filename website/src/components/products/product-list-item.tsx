@@ -5,6 +5,7 @@ import { Link } from "@/i18n/routing";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/components/cart/cart-context";
 import ProductImage from "@/components/products/product-image";
+import { productDetailPath } from "@/lib/product-url";
 import { ShoppingCart, Star, Check } from "lucide-react";
 import { useState } from "react";
 
@@ -29,7 +30,7 @@ export function ProductListItem({ product, locale }: { product: MockProduct; loc
 
   return (
     <div className="flex gap-4 rounded-2xl border bg-card p-4 transition-all hover:shadow-md">
-      <Link href={`/products/${product.code || product.id}`} className="shrink-0">
+      <Link href={productDetailPath(product)} className="shrink-0">
         <div className="size-28 rounded-xl relative overflow-hidden">
           {product.images?.[0] ? (
             <ProductImage src={product.images[0]} alt="" fill className="object-cover" sizes="112px" />
@@ -51,7 +52,7 @@ export function ProductListItem({ product, locale }: { product: MockProduct; loc
       <div className="flex flex-1 flex-col justify-between">
         <div>
           <p className="text-xs text-muted-foreground">{product.brand}</p>
-          <Link href={`/products/${product.code || product.id}`} className="hover:text-primary transition-colors">
+          <Link href={productDetailPath(product)} className="hover:text-primary transition-colors">
             <h3 className="font-medium line-clamp-1">{locale === "ar" ? product.nameAr : product.nameEn}</h3>
           </Link>
           {product.rating > 0 && (

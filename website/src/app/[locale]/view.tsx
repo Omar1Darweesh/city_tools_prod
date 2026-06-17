@@ -4,6 +4,7 @@ import { useLocale } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { store } from "@/data";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { productDetailPath } from "@/lib/product-url";
 import ProductImage from "@/components/products/product-image";
 import Image from "next/image";
 import { ShoppingCart, Star, Check, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, Zap, Wrench, Shield, Truck, BadgePercent, HeadphonesIcon, Package, Bolt, Droplets, Factory, Settings, Toolbox, DollarSign } from "lucide-react";
@@ -108,7 +109,7 @@ function ProductCard({ product, locale }: { product: MockProduct; locale: string
 
   return (
     <div className="product-card bg-card rounded-2xl border border-border overflow-hidden flex-shrink-0 w-52 sm:w-56 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-      <Link href={`/products/${product.code || product.id}`} className="block relative">
+      <Link href={productDetailPath(product)} className="block relative">
         <div className="h-44 relative overflow-hidden">
           {product.images?.[0] ? (
             <ProductImage src={product.images[0]} alt="" fill className="object-cover" sizes="224px" />
@@ -131,7 +132,7 @@ function ProductCard({ product, locale }: { product: MockProduct; locale: string
       </Link>
       <div className="p-3">
         <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">{product.brand}</p>
-            <Link href={`/products/${product.code || product.id}`}>
+            <Link href={productDetailPath(product)}>
           <h3 className="text-sm font-semibold line-clamp-2 mt-0.5 hover:text-primary transition-colors leading-snug">
             {locale === "ar" ? product.nameAr : product.nameEn}
           </h3>

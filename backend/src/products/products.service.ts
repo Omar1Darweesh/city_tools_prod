@@ -294,6 +294,10 @@ export class ProductsService {
       const nextId = (lastProduct?.id || 0) + 1;
       createProductDto.code = `PROD${String(nextId).padStart(6, '0')}`;
     }
+    createProductDto.code = createProductDto.code.trim();
+    if (createProductDto.barcode) {
+      createProductDto.barcode = createProductDto.barcode.trim();
+    }
 
     // Check if barcode already exists
     const existingBarcode = await this.prisma.product.findUnique({
@@ -857,6 +861,13 @@ export class ProductsService {
 
     if (!existingProduct) {
       throw new NotFoundException('Product not found');
+    }
+
+    if (updateProductDto.code) {
+      updateProductDto.code = updateProductDto.code.trim();
+    }
+    if (updateProductDto.barcode) {
+      updateProductDto.barcode = updateProductDto.barcode.trim();
     }
 
     if (updateProductDto.barcode) {

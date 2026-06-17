@@ -14,7 +14,7 @@ function mapProduct(p: any, showRatings = true) {
   const reservedStock = (p as any).reservedStock ?? 0;
   return {
     id: p.id,
-    code: p.code,
+    code: String(p.code || '').trim(),
     nameEn: p.nameEn,
     nameAr: p.nameAr,
     priceRetail: Number(p.priceRetail),
@@ -327,6 +327,7 @@ export class StoreService {
   }
 
   async getProduct(code: string) {
+    const normalized = code.trim();
     const include = {
       category: true,
       itemType: {
@@ -334,13 +335,36 @@ export class StoreService {
       },
     };
     let product = await this.prisma.product.findFirst({
-      where: { OR: [{ code }, { barcode: code }], active: true },
+      where: {
+        active: true,
+        OR: [
+          { code: normalized },
+          { barcode: normalized },
+          { code: { equals: normalized, mode: 'insensitive' } },
+          { barcode: { equals: normalized, mode: 'insensitive' } },
+        ],
+      },
       include,
     });
 
     if (!product) {
-      const id = parseInt(code, 10);
-      if (!isNaN(id) && String(id) === code) {
+      const trimmed = await this.prisma.$queryRawUnsafe<{ id: number }[]>(
+        `SELECT id FROM products WHERE active = true AND (
+          LOWER(TRIM(code)) = LOWER($1) OR LOWER(TRIM(barcode)) = LOWER($1)
+        ) LIMIT 1`,
+        normalized,
+      );
+      if (trimmed.length > 0) {
+        product = await this.prisma.product.findFirst({
+          where: { id: trimmed[0].id, active: true },
+          include,
+        });
+      }
+    }
+
+    if (!product) {
+      const id = parseInt(normalized, 10);
+      if (!isNaN(id) && String(id) === normalized) {
         product = await this.prisma.product.findFirst({
           where: { id, active: true },
           include,

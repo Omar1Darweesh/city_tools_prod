@@ -14,7 +14,7 @@ let categoriesCache: { data: MockCategory[]; at: number } | null = null;
 function mapProduct(p: any): MockProduct { // eslint-disable-line @typescript-eslint/no-explicit-any
   return {
     id: p.id,
-    code: p.code,
+    code: String(p.code || "").trim(),
     nameEn: p.nameEn,
     nameAr: p.nameAr,
     priceRetail: p.priceRetail,

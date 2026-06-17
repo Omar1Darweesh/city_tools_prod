@@ -58,12 +58,12 @@ export function parseProductImages(raw: unknown): string[] {
 
 export function normalizeProduct(raw: unknown): DisplayProduct | null {
   const p = raw as Record<string, unknown> | null;
-  if (!p || !p.id || !p.nameEn) return null;
+  if (!p || !p.id) return null;
 
   return {
     id: Number(p.id),
-    code: String(p.code || ""),
-    nameEn: String(p.nameEn),
+    code: String(p.code || "").trim(),
+    nameEn: String(p.nameEn || p.nameAr || ""),
     nameAr: String(p.nameAr || p.nameEn),
     priceRetail: Number(p.priceRetail),
     priceWholesale: Number(p.priceWholesale),
@@ -106,7 +106,7 @@ export function normalizeProduct(raw: unknown): DisplayProduct | null {
 
 export async function fetchStoreProduct(slug: string): Promise<DisplayProduct | null> {
   try {
-    const res = await fetch(`${API_BASE}/store/products/${encodeURIComponent(slug)}`, {
+    const res = await fetch(`${API_BASE}/store/products/${encodeURIComponent(slug.trim())}`, {
       cache: "no-store",
     });
     if (!res.ok) return null;
