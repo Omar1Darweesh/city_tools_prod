@@ -7,6 +7,10 @@ export type { MockProduct, MockCategory, MockSubcategory, MockItemType, MockBran
 export const categories: MockCategory[] = mockCategories;
 export const brands: MockBrand[] = mockBrands;
 
+const CACHE_TTL_MS = 5 * 60 * 1000;
+let trustedBrandsCache: { data: MockBrand[]; at: number } | null = null;
+let categoriesCache: { data: MockCategory[]; at: number } | null = null;
+
 function mapProduct(p: any): MockProduct { // eslint-disable-line @typescript-eslint/no-explicit-any
   return {
     id: p.id,
@@ -167,9 +171,14 @@ export const store = {
   },
 
   async getCategories(): Promise<MockCategory[]> {
+    if (categoriesCache && Date.now() - categoriesCache.at < CACHE_TTL_MS) {
+      return categoriesCache.data;
+    }
     try {
       const res = await api.getCategories();
-      return res.map(mapCategory);
+      const data = res.map(mapCategory);
+      categoriesCache = { data, at: Date.now() };
+      return data;
     } catch {
       return mockCategories;
     }
@@ -231,6 +240,9 @@ export const store = {
   },
 
   async getTrustedBrands(): Promise<MockBrand[]> {
+    if (trustedBrandsCache && Date.now() - trustedBrandsCache.at < CACHE_TTL_MS) {
+      return trustedBrandsCache.data;
+    }
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/store/brands/trusted`);
       const json = await res.json();
@@ -243,9 +255,11 @@ export const store = {
         isTrusted: b.isTrusted !== false,
         sortOrder: b.sortOrder ?? 0,
       }));
-      return rows
+      const data = rows
         .filter((b) => b.isTrusted !== false && b.productCount > 0)
         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || b.productCount - a.productCount);
+      trustedBrandsCache = { data, at: Date.now() };
+      return data;
     } catch {
       return mockBrands;
     }

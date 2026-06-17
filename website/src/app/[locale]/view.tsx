@@ -8,6 +8,7 @@ import ProductImage from "@/components/products/product-image";
 import Image from "next/image";
 import { ShoppingCart, Star, Check, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, Zap, Wrench, Shield, Truck, BadgePercent, HeadphonesIcon, Package, Bolt, Droplets, Factory, Settings, Toolbox, DollarSign } from "lucide-react";
 import { useCart } from "@/components/cart/cart-context";
+import { buildLogoByName, getCategoryLogo } from "@/lib/brand-logo";
 import type { MockProduct, MockCategory, MockSubcategory, MockBrand, MockStatistic, MockDiscountCard } from "@/data";
 
 /* ─── helpers ─── */
@@ -78,20 +79,6 @@ const SUBCAT_COLORS = ["#f97316", "#22c55e", "#eab308", "#06b6d4", "#ef4444", "#
 function getSubcatIcon(index: number): React.ReactNode {
   const key = SUBCAT_ICON_KEYS[index % SUBCAT_ICON_KEYS.length];
   return ICON_COMPONENT[key] || <Package className="size-7 text-white" />;
-}
-
-function getCategoryLogo(cat: MockCategory, logoByName: Map<string, string>): string | null {
-  const logo =
-    logoByName.get(cat.name.toLowerCase()) ||
-    logoByName.get((cat.nameAr || "").toLowerCase()) ||
-    null;
-  return resolveBrandLogo(logo);
-}
-
-function resolveBrandLogo(logo?: string | null): string | null {
-  if (!logo) return null;
-  if (logo.startsWith("http://") || logo.startsWith("https://") || logo.startsWith("/")) return logo;
-  return `/${logo.replace(/^\/+/, "")}`;
 }
 
 function CircleScroller({ children }: { children: React.ReactNode }) {
@@ -352,19 +339,27 @@ export default function HomePage() {
   const isRtl = locale === "ar";
 
   useEffect(() => {
-    store.getCategories().then(setCats);
-    store.getSubcategories().then(setSubcats);
-    store.getTrustedBrands().then(setBrandLogos);
-    store.getActiveStatistics().then(setStatistics);
-    store.getActiveDiscountCards().then(setDiscountCards);
-    store.getBestSellingProducts().then(setBestSellers);
-    store.getPopularProducts().then(setPopular);
-    store.getTrustFeatures().then(setTrustFeatures);
-    store.getActiveHeroSlides().then((slides) => {
-      if (slides.length > 0) {
-        setHeroSlides(slides.map(mapHeroSlide));
-      }
+    Promise.all([
+      store.getCategories(),
+      store.getSubcategories(),
+      store.getTrustedBrands(),
+      store.getTrustFeatures(),
+      store.getActiveHeroSlides(),
+    ]).then(([catsData, subcatsData, logos, trust, slides]) => {
+      setCats(catsData);
+      setSubcats(subcatsData);
+      setBrandLogos(logos);
+      setTrustFeatures(trust);
+      if (slides.length > 0) setHeroSlides(slides.map(mapHeroSlide));
     });
+
+    const deferred = window.setTimeout(() => {
+      store.getActiveStatistics().then(setStatistics);
+      store.getActiveDiscountCards().then(setDiscountCards);
+      store.getBestSellingProducts().then(setBestSellers);
+      store.getPopularProducts().then(setPopular);
+    }, 150);
+    return () => window.clearTimeout(deferred);
   }, []);
 
   const activeDiscountCards = discountCards.filter(c => c.isActive !== false);
@@ -376,13 +371,7 @@ export default function HomePage() {
     return () => clearInterval(timer);
   }, [activeDiscountCards.length]);
 
-  const logoByName = new Map<string, string>();
-  for (const b of brandLogos) {
-    if (b.logo) {
-      logoByName.set(b.name.toLowerCase(), b.logo);
-      if (b.nameAr) logoByName.set(b.nameAr.toLowerCase(), b.logo);
-    }
-  }
+  const logoByName = buildLogoByName(brandLogos);
 
   const marqueeBrands = brandLogos.length > 0 ? brandLogos : cats.map((c) => ({
     id: c.id,

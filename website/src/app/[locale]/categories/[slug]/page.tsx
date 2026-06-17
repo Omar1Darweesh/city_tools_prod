@@ -58,6 +58,18 @@ async function fetchCategory(slug: string) {
   return null;
 }
 
+function toInitialCategory(c: Record<string, unknown>, slug: string) {
+  return {
+    id: c.id as number,
+    name: String(c.name || ""),
+    nameAr: String(c.nameAr || c.name || ""),
+    slug: String(c.slug || slug),
+    color: String(c.color || "#2563eb"),
+    icon: String(c.icon || "Wrench"),
+    productCount: Number(c.productCount || 0),
+  };
+}
+
 export default async function Page(props: any) {
   const { locale, slug } = await props.params;
   const isAr = locale === "ar";
@@ -84,7 +96,7 @@ export default async function Page(props: any) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
-      <CategoryDetailView {...props} />
+      <CategoryDetailView initialCategory={toInitialCategory(c, slug)} />
     </>
   );
 }

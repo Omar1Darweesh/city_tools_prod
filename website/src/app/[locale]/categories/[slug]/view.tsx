@@ -1,7 +1,6 @@
 "use client";
 
 import { useLocale } from "next-intl";
-import { useParams, notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/products/product-card";
 import { ProductGrid } from "@/components/products/product-grid";
@@ -9,10 +8,11 @@ import { SortSelect } from "@/components/products/sort-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { EmptyState } from "@/components/shared/empty-state";
-import { store, getCategoryBySlug } from "@/data";
-import { useState, useEffect, type ReactNode } from "react";
-import { Package, Zap, Wrench, Bolt, Droplets, Shield, Factory, Settings, Toolbox, Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { store } from "@/data";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { Package, Zap, Wrench, Bolt, Droplets, Shield, Factory, Settings, Toolbox, Star } from "lucide-react";
 import type { MockProduct, MockCategory, MockSubcategory, MockItemType, MockBrand } from "@/data";
+import { buildLogoByName, getCategoryLogo } from "@/lib/brand-logo";
 
 const ICON_COMPONENT: Record<string, ReactNode> = {
   Zap: <Zap className="size-4 text-white" />,
@@ -32,71 +32,84 @@ function getCatIcon(icon: string): ReactNode {
   return ICON_COMPONENT[key] || <Package className="size-4 text-white" />;
 }
 
-export default function CategoryDetailPage() {
+function ProductGridSkeleton() {
+  return (
+    <ProductGrid>
+      {[...Array(8)].map((_, i) => (
+        <div key={i} className="overflow-hidden rounded-lg border bg-card">
+          <div className="aspect-[3/2] animate-pulse bg-muted" />
+          <div className="space-y-2 p-2">
+            <div className="h-2 w-1/3 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-full animate-pulse rounded bg-muted" />
+            <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+            <div className="h-6 w-full animate-pulse rounded-full bg-muted" />
+          </div>
+        </div>
+      ))}
+    </ProductGrid>
+  );
+}
+
+interface Props {
+  initialCategory: MockCategory;
+}
+
+export default function CategoryDetailPage({ initialCategory }: Props) {
   const locale = useLocale();
-  const params = useParams<{ slug: string }>();
   const [sort, setSort] = useState("newest");
-  const [category, setCategory] = useState<MockCategory | undefined>(undefined);
+  const category = initialCategory;
   const [products, setProducts] = useState<MockProduct[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [filterBrand, setFilterBrand] = useState<string>("_all");
   const [filterSubcategory, setFilterSubcategory] = useState<number | undefined>(undefined);
   const [filterItemType, setFilterItemType] = useState<number | undefined>(undefined);
   const [subcats, setSubcats] = useState<MockSubcategory[]>([]);
   const [itemTypes, setItemTypes] = useState<MockItemType[]>([]);
   const [brands, setBrands] = useState<MockBrand[]>([]);
+  const [brandLogos, setBrandLogos] = useState<MockBrand[]>([]);
   const PAGE_SIZE = 24;
 
   useEffect(() => {
-    (async () => {
-      const cat = await getCategoryBySlug(params.slug);
-      setCategory(cat);
-    })();
-  }, [params.slug]);
-
-  useEffect(() => {
-    if (category) {
-      store.getSubcategories(category.id).then(setSubcats);
-      store.getBrands(category.id).then(setBrands);
-    }
-  }, [category]);
+    store.getTrustedBrands().then(setBrandLogos);
+    store.getSubcategories(category.id).then(setSubcats);
+    store.getBrands(category.id).then(setBrands);
+  }, [category.id]);
 
   useEffect(() => {
     if (filterSubcategory) store.getItemTypes(filterSubcategory).then(setItemTypes);
     else setItemTypes([]);
   }, [filterSubcategory]);
 
-  useEffect(() => { setPage(1); }, [category, sort, filterBrand, filterSubcategory, filterItemType]);
+  useEffect(() => { setPage(1); }, [sort, filterBrand, filterSubcategory, filterItemType]);
 
   useEffect(() => {
-    if (!category) return;
-    store.getProducts({ categoryId: category.id, subcategoryId: filterSubcategory, itemTypeId: filterItemType, sort, page, limit: PAGE_SIZE, brand: filterBrand === "_all" ? undefined : filterBrand }).then((res) => {
+    setProductsLoading(true);
+    store.getProducts({
+      categoryId: category.id,
+      subcategoryId: filterSubcategory,
+      itemTypeId: filterItemType,
+      sort,
+      page,
+      limit: PAGE_SIZE,
+      brand: filterBrand === "_all" ? undefined : filterBrand,
+    }).then((res) => {
       setProducts(res.data as MockProduct[]);
       setTotalCount(res.total ?? 0);
       setTotalPages(res.totalPages ?? 1);
-      setLoading(false);
+      setProductsLoading(false);
     });
-  }, [category, sort, page, filterBrand, filterSubcategory, filterItemType]);
+  }, [category.id, sort, page, filterBrand, filterSubcategory, filterItemType]);
 
-  if (!loading && !category) {
-    notFound();
-  }
-
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-20 text-center text-muted-foreground">
-        {locale === "ar" ? "جاري التحميل..." : "Loading..."}
-      </div>
-    );
-  }
+  const logoByName = useMemo(() => buildLogoByName(brandLogos), [brandLogos]);
+  const logoSrc = getCategoryLogo(category, logoByName);
 
   const breadcrumbItems = [
     { label: locale === "ar" ? "الرئيسية" : "Home", href: "/" },
     { label: locale === "ar" ? "الأقسام" : "Categories", href: "/categories" },
-    { label: locale === "ar" ? category!.nameAr : category!.name },
+    { label: locale === "ar" ? category.nameAr : category.name },
   ];
 
   return (
@@ -104,16 +117,26 @@ export default function CategoryDetailPage() {
       <Breadcrumb items={breadcrumbItems} locale={locale} />
 
       <div className="mb-8">
-        <div className="flex size-12 items-center justify-center rounded-2xl shadow-sm mb-4" style={{ background: `linear-gradient(135deg, ${category!.color || "#6b7280"}, ${category!.color ? category!.color + "99" : "#9ca3af"})` }}>
-          <div className="flex size-7 items-center justify-center rounded-lg bg-white/20">
-            {getCatIcon(category!.icon)}
+        {logoSrc ? (
+          <div className="mb-4 flex size-16 items-center justify-center rounded-2xl border border-border bg-white p-2 shadow-sm">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logoSrc} alt={category.name} className="size-full object-contain" />
           </div>
-        </div>
+        ) : (
+          <div
+            className="mb-4 flex size-12 items-center justify-center rounded-2xl shadow-sm"
+            style={{ background: `linear-gradient(135deg, ${category.color || "#6b7280"}, ${category.color ? category.color + "99" : "#9ca3af"})` }}
+          >
+            <div className="flex size-7 items-center justify-center rounded-lg bg-white/20">
+              {getCatIcon(category.icon)}
+            </div>
+          </div>
+        )}
         <h1 className="text-3xl font-bold">
-          {locale === "ar" ? category!.nameAr : category!.name}
+          {locale === "ar" ? category.nameAr : category.name}
         </h1>
         <p className="mt-1 text-muted-foreground">
-          {totalCount} {locale === "ar" ? "منتج" : "products"}
+          {productsLoading ? "…" : totalCount} {locale === "ar" ? "منتج" : "products"}
         </p>
       </div>
 
@@ -175,7 +198,7 @@ export default function CategoryDetailPage() {
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <div className="flex-1" />
-        {brands.length > 0 && (
+        {brands.length > 1 && (
           <Select value={filterBrand} onValueChange={(v) => setFilterBrand(v)}>
             <SelectTrigger className="h-8 w-[140px] rounded-full text-xs">
               <SelectValue />
@@ -193,7 +216,9 @@ export default function CategoryDetailPage() {
         <SortSelect value={sort} onValueChange={setSort} locale={locale} />
       </div>
 
-      {products.length === 0 ? (
+      {productsLoading ? (
+        <ProductGridSkeleton />
+      ) : products.length === 0 ? (
         <EmptyState
           icon={<Package className="size-16" />}
           title={locale === "ar" ? "لا توجد منتجات" : "No products found"}
@@ -212,47 +237,24 @@ export default function CategoryDetailPage() {
             <div className="mt-6 flex flex-wrap items-center justify-center gap-1">
               <Button
                 variant="outline"
-                size="icon"
-                className="rounded-full size-7"
-                disabled={page <= 1}
-                onClick={() => setPage(page - 1)}
+                size="sm"
+                className="h-8 rounded-full px-3 text-xs"
+                disabled={page === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
-                <ChevronLeft className="size-3" />
+                {locale === "ar" ? "السابق" : "Previous"}
               </Button>
-              {(() => {
-                const pages: (number | "...")[] = [];
-                const delta = 2;
-                for (let i = 1; i <= totalPages; i++) {
-                  if (i === 1 || i === totalPages || (i >= page - delta && i <= page + delta)) {
-                    pages.push(i);
-                  } else if (pages[pages.length - 1] !== "...") {
-                    pages.push("...");
-                  }
-                }
-                return pages.map((p, i) =>
-                  p === "..." ? (
-                    <span key={`e${i}`} className="text-xs text-muted-foreground px-1">...</span>
-                  ) : (
-                    <Button
-                      key={p}
-                      variant={p === page ? "default" : "outline"}
-                      size="icon"
-                      className="rounded-full size-7 text-[11px]"
-                      onClick={() => setPage(p)}
-                    >
-                      {p}
-                    </Button>
-                  )
-                );
-              })()}
+              <span className="px-3 text-xs text-muted-foreground">
+                {locale === "ar" ? `صفحة ${page} من ${totalPages}` : `Page ${page} of ${totalPages}`}
+              </span>
               <Button
                 variant="outline"
-                size="icon"
-                className="rounded-full size-7"
-                disabled={page >= totalPages}
-                onClick={() => setPage(page + 1)}
+                size="sm"
+                className="h-8 rounded-full px-3 text-xs"
+                disabled={page === totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >
-                <ChevronRight className="size-3" />
+                {locale === "ar" ? "التالي" : "Next"}
               </Button>
             </div>
           )}

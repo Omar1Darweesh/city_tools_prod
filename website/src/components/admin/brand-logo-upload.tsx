@@ -75,7 +75,7 @@ export default function BrandLogoUpload({ value, onChange, locale }: Props) {
             </label>
           </div>
           <p className="blu-hint">
-            {isRtl ? "أدخل رابطاً أو انقر على زر الرفع — يظهر الشعار في الصفحة الرئيسية" : "Enter a URL or click upload — logo appears on the homepage"}
+            {isRtl ? "أدخل رابطاً أو انقر على زر الرفع — يظهر الشعار في الصفحة الرئيسية وصفحة الماركة" : "Enter a URL or click upload — logo appears on the homepage and brand page"}
           </p>
           {error && <p className="blu-error">{error}</p>}
         </div>
