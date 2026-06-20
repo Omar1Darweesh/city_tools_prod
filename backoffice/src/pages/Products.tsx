@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Clock, Edit, Trash, Plus, Search, Filter, TrendingUp, Download, Globe, ChevronDown, ChevronUp, Loader } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import ProductForm from './ProductForm';
@@ -6,6 +6,7 @@ import ProductAuditHistory from './ProductAuditHistory';
 import ProductTransactions from './ProductTransactions';
 import apiClient from '../api/client';
 import { getFirstProductImageUrl, loadExportImage } from '../utils/export-image';
+import { groupSubcategoriesByName } from '../utils/subcategory-groups';
 
 interface Product {
     id: number;
@@ -67,7 +68,7 @@ export default function Products() {
     const canDelete = isAdmin || userPerms.includes('products:delete');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-    const [selectedSubcategory, setSelectedSubcategory] = useState<number | null>(null);
+    const [selectedTypeGroup, setSelectedTypeGroup] = useState<string>('');
     const [selectedItemType, setSelectedItemType] = useState<number | null>(null);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -91,7 +92,7 @@ export default function Products() {
         fetchProducts();
         fetchCategories();
         fetchAllTotal();
-    }, [searchTerm, selectedCategory, selectedSubcategory, selectedItemType, page, showInactive, stockFilter, hasImageFilter, zeroPriceFilter]);
+    }, [searchTerm, selectedCategory, selectedTypeGroup, selectedItemType, page, showInactive, stockFilter, hasImageFilter, zeroPriceFilter]);
 
     const fetchAllTotal = async () => {
         try {
@@ -110,7 +111,7 @@ export default function Products() {
 
             if (searchTerm) params.search = searchTerm;
             if (selectedCategory) params.categoryId = selectedCategory;
-            if (selectedSubcategory) params.subcategoryId = selectedSubcategory;
+            if (selectedTypeGroup) params.subcategoryName = selectedTypeGroup;
             if (selectedItemType) params.itemTypeId = selectedItemType;
 
             if (!showInactive) params.active = true;
@@ -188,33 +189,7 @@ export default function Products() {
         fetchProducts();
     };
 
-    const findSubcategoryById = (id: number) => {
-        for (const cat of categories) {
-            const sub = cat.subcategories?.find((s) => s.id === id);
-            if (sub) return { ...sub, categoryId: cat.id, categoryName: cat.nameAr || cat.name };
-        }
-        return null;
-    };
-
-    const findItemTypeById = (id: number) => {
-        for (const cat of categories) {
-            for (const sub of cat.subcategories || []) {
-                const item = sub.itemTypes?.find((t) => t.id === id);
-                if (item) {
-                    return {
-                        ...item,
-                        subcategoryId: sub.id,
-                        subcategoryName: sub.nameAr || sub.name,
-                        categoryId: cat.id,
-                        categoryName: cat.nameAr || cat.name,
-                    };
-                }
-            }
-        }
-        return null;
-    };
-
-    const getSubcategories = (): Array<Subcategory & { categoryId: number; categoryName: string }> => {
+    const getAllSubcategories = (): Array<Subcategory & { categoryId: number; categoryName: string }> => {
         if (selectedCategory) {
             const category = categories.find((c) => c.id === selectedCategory);
             return (category?.subcategories || []).map((sub) => ({
@@ -232,43 +207,34 @@ export default function Products() {
         );
     };
 
+    const typeGroups = useMemo(
+        () => groupSubcategoriesByName(getAllSubcategories()),
+        [categories, selectedCategory],
+    );
+
+    const selectedGroupIds = useMemo(() => {
+        if (!selectedTypeGroup) return null;
+        const group = typeGroups.find((g) => (g.nameAr || g.name) === selectedTypeGroup);
+        return group?.ids ?? null;
+    }, [typeGroups, selectedTypeGroup]);
+
     const getItemTypes = (): Array<ItemType & { subcategoryId: number; subcategoryName: string; categoryId: number; categoryName: string }> => {
-        if (selectedSubcategory) {
-            const sub = findSubcategoryById(selectedSubcategory);
-            return (sub?.itemTypes || []).map((item) => ({
+        const subcats = getAllSubcategories().filter(
+            (sub) => !selectedGroupIds || selectedGroupIds.includes(sub.id),
+        );
+
+        return subcats.flatMap((sub) =>
+            (sub.itemTypes || []).map((item) => ({
                 ...item,
-                subcategoryId: selectedSubcategory,
-                subcategoryName: sub?.nameAr || sub?.name || '',
-                categoryId: sub?.categoryId || 0,
-                categoryName: sub?.categoryName || '',
-            }));
-        }
-        if (selectedCategory) {
-            const category = categories.find((c) => c.id === selectedCategory);
-            return (category?.subcategories || []).flatMap((sub) =>
-                (sub.itemTypes || []).map((item) => ({
-                    ...item,
-                    subcategoryId: sub.id,
-                    subcategoryName: sub.nameAr || sub.name,
-                    categoryId: selectedCategory,
-                    categoryName: category?.nameAr || category?.name || '',
-                })),
-            );
-        }
-        return categories.flatMap((cat) =>
-            (cat.subcategories || []).flatMap((sub) =>
-                (sub.itemTypes || []).map((item) => ({
-                    ...item,
-                    subcategoryId: sub.id,
-                    subcategoryName: sub.nameAr || sub.name,
-                    categoryId: cat.id,
-                    categoryName: cat.nameAr || cat.name,
-                })),
-            ),
+                subcategoryId: sub.id,
+                subcategoryName: sub.nameAr || sub.name,
+                categoryId: sub.categoryId,
+                categoryName: sub.categoryName,
+            })),
         );
     };
 
-    const hasActiveFilters = searchTerm || selectedCategory || selectedSubcategory || selectedItemType || stockFilter || hasImageFilter || zeroPriceFilter;
+    const hasActiveFilters = searchTerm || selectedCategory || selectedTypeGroup || selectedItemType || stockFilter || hasImageFilter || zeroPriceFilter;
 
     const exportToExcel = async () => {
         setIsExporting(true);
@@ -276,7 +242,7 @@ export default function Products() {
             const params: any = { take: 10000 };
             if (searchTerm) params.search = searchTerm;
             if (selectedCategory) params.categoryId = selectedCategory;
-            if (selectedSubcategory) params.subcategoryId = selectedSubcategory;
+            if (selectedTypeGroup) params.subcategoryName = selectedTypeGroup;
             if (selectedItemType) params.itemTypeId = selectedItemType;
             if (stockFilter) params.stockStatus = stockFilter;
             if (hasImageFilter) {
@@ -745,13 +711,8 @@ export default function Products() {
                             onChange={(e) => {
                                 const newCategoryId = e.target.value ? Number(e.target.value) : null;
                                 setSelectedCategory(newCategoryId);
-                                if (newCategoryId && selectedSubcategory) {
-                                    const sub = findSubcategoryById(selectedSubcategory);
-                                    if (sub && sub.categoryId !== newCategoryId) {
-                                        setSelectedSubcategory(null);
-                                        setSelectedItemType(null);
-                                    }
-                                }
+                                setSelectedTypeGroup('');
+                                setSelectedItemType(null);
                                 setPage(1);
                             }}
                             style={{
@@ -774,7 +735,7 @@ export default function Products() {
                         </select>
                     </div>
 
-                    {/* Subcategory Filter */}
+                    {/* Type group filter (matches website فئات: يدوي، اكسسوارات، …) */}
                     <div style={{ position: 'relative' }}>
                         <Filter
                             size={18}
@@ -783,43 +744,31 @@ export default function Products() {
                                 right: '12px',
                                 top: '50%',
                                 transform: 'translateY(-50%)',
-                                color: selectedSubcategory ? '#667eea' : '#9ca3af',
+                                color: selectedTypeGroup ? '#667eea' : '#9ca3af',
                             }}
                         />
                         <select
-                            value={selectedSubcategory || ''}
+                            value={selectedTypeGroup}
                             onChange={(e) => {
-                                const newSubId = e.target.value ? Number(e.target.value) : null;
-                                setSelectedSubcategory(newSubId);
-                                if (newSubId) {
-                                    const sub = findSubcategoryById(newSubId);
-                                    if (sub) setSelectedCategory(sub.categoryId);
-                                    if (selectedItemType) {
-                                        const item = findItemTypeById(selectedItemType);
-                                        if (item && item.subcategoryId !== newSubId) {
-                                            setSelectedItemType(null);
-                                        }
-                                    }
-                                }
+                                setSelectedTypeGroup(e.target.value);
+                                setSelectedItemType(null);
                                 setPage(1);
                             }}
                             style={{
                                 width: '100%',
                                 padding: '0.75rem 2.5rem 0.75rem 1rem',
-                                border: selectedSubcategory ? '2px solid #667eea' : '1px solid #e5e7eb',
+                                border: selectedTypeGroup ? '2px solid #667eea' : '1px solid #e5e7eb',
                                 borderRadius: '8px',
                                 fontSize: '0.875rem',
                                 background: 'white',
                                 transition: 'all 0.2s',
-                                fontWeight: selectedSubcategory ? '600' : 'normal',
+                                fontWeight: selectedTypeGroup ? '600' : 'normal',
                             }}
                         >
-                            <option value="">كل الفئات الفرعية</option>
-                            {getSubcategories().map((sub) => (
-                                <option key={sub.id} value={sub.id}>
-                                    {selectedCategory
-                                        ? sub.nameAr || sub.name
-                                        : `${sub.categoryName} → ${sub.nameAr || sub.name}`}
+                            <option value="">كل الفئات</option>
+                            {typeGroups.map((group) => (
+                                <option key={group.key} value={group.nameAr || group.name}>
+                                    {group.nameAr || group.name}
                                 </option>
                             ))}
                         </select>
@@ -842,13 +791,6 @@ export default function Products() {
                             onChange={(e) => {
                                 const newItemTypeId = e.target.value ? Number(e.target.value) : null;
                                 setSelectedItemType(newItemTypeId);
-                                if (newItemTypeId) {
-                                    const item = findItemTypeById(newItemTypeId);
-                                    if (item) {
-                                        setSelectedSubcategory(item.subcategoryId);
-                                        setSelectedCategory(item.categoryId);
-                                    }
-                                }
                                 setPage(1);
                             }}
                             style={{
@@ -865,11 +807,7 @@ export default function Products() {
                             <option value="">كل الأصناف</option>
                             {getItemTypes().map((item) => (
                                 <option key={item.id} value={item.id}>
-                                    {selectedSubcategory
-                                        ? item.nameAr || item.name
-                                        : selectedCategory
-                                          ? `${item.subcategoryName} → ${item.nameAr || item.name}`
-                                          : `${item.categoryName} → ${item.subcategoryName} → ${item.nameAr || item.name}`}
+                                    {item.nameAr || item.name}
                                 </option>
                             ))}
                         </select>
@@ -1058,7 +996,7 @@ export default function Products() {
                                 onClick={() => {
                                     setSearchTerm('');
                                     setSelectedCategory(null);
-                                    setSelectedSubcategory(null);
+                                    setSelectedTypeGroup('');
                                     setSelectedItemType(null);
                                     setStockFilter('');
                                     setHasImageFilter('');

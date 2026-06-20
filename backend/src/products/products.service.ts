@@ -455,6 +455,7 @@ export class ProductsService {
     search?: string;
     categoryId?: number;
     subcategoryId?: number;
+    subcategoryName?: string;
     itemTypeId?: number;
     active?: boolean;
     branchId?: number;
@@ -470,6 +471,7 @@ export class ProductsService {
       search,
       categoryId,
       subcategoryId,
+      subcategoryName,
       itemTypeId,
       active,
       branchId,
@@ -512,7 +514,16 @@ export class ProductsService {
     }
 
     // Filter by subcategory (through itemType)
-    if (subcategoryId !== undefined) {
+    if (subcategoryName) {
+      where.itemType = {
+        subcategory: {
+          OR: [
+            { nameAr: { equals: subcategoryName, mode: 'insensitive' } },
+            { name: { equals: subcategoryName, mode: 'insensitive' } },
+          ],
+        },
+      };
+    } else if (subcategoryId !== undefined) {
       where.itemType = {
         subcategoryId: subcategoryId,
       };
