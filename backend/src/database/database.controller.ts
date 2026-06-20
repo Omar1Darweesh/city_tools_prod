@@ -9,14 +9,18 @@ export class DatabaseController {
     /** POST /database/backup — create manual backup; ?download=1 streams file to browser */
     @Post('backup')
     async createBackup(@Query('download') download: string | undefined, @Res() res: Response) {
-        const result = await this.databaseService.createBackup(true);
-        const { path, filename, type, date, size } = result;
+        try {
+            const result = await this.databaseService.createBackup(true);
+            const { path, filename, type, date, size } = result;
 
-        if (download === 'true' || download === '1') {
-            return res.download(path, filename);
+            if (download === 'true' || download === '1') {
+                return res.download(path, filename);
+            }
+
+            return res.status(HttpStatus.CREATED).json({ success: true, filename, type, date, size });
+        } catch (error: any) {
+            throw new HttpException(error?.message || 'Backup failed', HttpStatus.INTERNAL_SERVER_ERROR);
         }
-
-        return res.status(HttpStatus.CREATED).json({ success: true, filename, type, date, size });
     }
 
     /** GET /database/backups — list all backup files */

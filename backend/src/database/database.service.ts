@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const execPromise = promisify(exec);
+const execFilePromise = promisify(execFile);
 
 export interface BackupInfo {
     filename: string;
@@ -12,6 +12,14 @@ export interface BackupInfo {
     date: string;
     size: number;
     path: string;
+}
+
+interface DbConfig {
+    host: string;
+    port: string;
+    user: string;
+    password: string;
+    database: string;
 }
 
 @Injectable()
@@ -24,18 +32,17 @@ export class DatabaseService {
     private resolvePgDump(): string {
         if (process.platform === 'win32') {
             const portablePath = path.join(process.cwd(), '..', 'postgresql-portable', 'bin', 'pg_dump.exe');
-            if (fs.existsSync(portablePath)) return `"${portablePath}"`;
+            if (fs.existsSync(portablePath)) return portablePath;
             return 'pg_dump';
         }
-        // Linux: try common installation paths
         const linuxPaths = [
-            '/usr/bin/pg_dump',
-            '/usr/local/bin/pg_dump',
             '/usr/lib/postgresql/17/bin/pg_dump',
             '/usr/lib/postgresql/16/bin/pg_dump',
             '/usr/lib/postgresql/15/bin/pg_dump',
             '/usr/lib/postgresql/14/bin/pg_dump',
             '/usr/lib/postgresql/13/bin/pg_dump',
+            '/usr/bin/pg_dump',
+            '/usr/local/bin/pg_dump',
         ];
         for (const p of linuxPaths) {
             if (fs.existsSync(p)) return p;
@@ -43,13 +50,25 @@ export class DatabaseService {
         return 'pg_dump';
     }
 
-    private resolveConnectionUri(): string {
+    private getDbConfig(): DbConfig {
         if (process.env.DATABASE_URL) {
-            // Strip Prisma-specific query params (?schema=public, etc.)
-            return process.env.DATABASE_URL.split('?')[0];
+            const raw = process.env.DATABASE_URL.split('?')[0];
+            const url = new URL(raw);
+            return {
+                host: url.hostname || 'localhost',
+                port: url.port || '5432',
+                user: decodeURIComponent(url.username),
+                password: decodeURIComponent(url.password),
+                database: url.pathname.replace(/^\//, ''),
+            };
         }
-        const { PGUSER, PGPASSWORD, PGHOST, PGPORT, PGDATABASE } = process.env;
-        return `postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT || '5432'}/${PGDATABASE}`;
+        return {
+            host: process.env.PGHOST || 'localhost',
+            port: process.env.PGPORT || '5432',
+            user: process.env.PGUSER || '',
+            password: process.env.PGPASSWORD || '',
+            database: process.env.PGDATABASE || '',
+        };
     }
 
     async createBackup(isManual: boolean = false): Promise<BackupInfo> {
@@ -65,21 +84,40 @@ export class DatabaseService {
         }
 
         const pgDump = this.resolvePgDump();
-        const dbUri = this.resolveConnectionUri();
+        const db = this.getDbConfig();
 
-        console.log(`[Backup] type=${type} file=${filename} pgDump=${pgDump}`);
+        if (!db.user || !db.database) {
+            throw new Error('Database credentials are not configured (DATABASE_URL or PG* env vars)');
+        }
 
-        const command = `${pgDump} "${dbUri}" -f "${backupPath}"`;
+        console.log(`[Backup] type=${type} file=${filename} pgDump=${pgDump} db=${db.database}@${db.host}`);
+
+        const args = [
+            '-h', db.host,
+            '-p', db.port,
+            '-U', db.user,
+            '-d', db.database,
+            '-f', backupPath,
+            '--no-owner',
+            '--no-acl',
+        ];
 
         try {
-            const { stderr } = await execPromise(command, { env: { ...process.env } });
-            if (stderr) console.warn('[Backup] pg_dump stderr:', stderr);
+            await execFilePromise(pgDump, args, {
+                env: { ...process.env, PGPASSWORD: db.password },
+                maxBuffer: 50 * 1024 * 1024,
+            });
 
             if (!fs.existsSync(backupPath)) {
                 throw new Error('Backup file was not created');
             }
 
             const stats = fs.statSync(backupPath);
+            if (stats.size === 0) {
+                fs.unlinkSync(backupPath);
+                throw new Error('Backup file is empty — check pg_dump and database connection');
+            }
+
             console.log(`[Backup] Success: ${stats.size} bytes`);
 
             return {
@@ -89,9 +127,13 @@ export class DatabaseService {
                 size: stats.size,
                 path: backupPath,
             };
-        } catch (error) {
-            console.error('[Backup] Failed:', error.message);
-            throw new Error(`Backup failed: ${error.message}`);
+        } catch (error: any) {
+            if (fs.existsSync(backupPath)) {
+                try { fs.unlinkSync(backupPath); } catch { /* ignore */ }
+            }
+            const detail = error?.stderr?.toString?.() || error?.message || String(error);
+            console.error('[Backup] Failed:', detail);
+            throw new Error(`Backup failed: ${detail.trim()}`);
         }
     }
 
@@ -105,7 +147,6 @@ export class DatabaseService {
                 const filePath = path.join(backupsDir, filename);
                 const stats = fs.statSync(filePath);
                 const isManual = filename.includes('_manual_');
-                // Parse ISO date from filename: backup_manual_2026-05-16T14-30-00.sql
                 const m = filename.match(/(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})/);
                 const date = m
                     ? `${m[1]}:${m[2]}:${m[3]}`
