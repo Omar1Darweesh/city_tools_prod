@@ -35,12 +35,27 @@ export class DatabaseService {
             if (fs.existsSync(portablePath)) return portablePath;
             return 'pg_dump';
         }
+
+        // Prefer the newest client under /usr/lib/postgresql/<version>/bin/pg_dump
+        const pgLib = '/usr/lib/postgresql';
+        if (fs.existsSync(pgLib)) {
+            const versions = fs.readdirSync(pgLib)
+                .filter((v) => /^\d+$/.test(v))
+                .map((v) => Number(v))
+                .sort((a, b) => b - a);
+            for (const v of versions) {
+                const candidate = path.join(pgLib, String(v), 'bin', 'pg_dump');
+                if (fs.existsSync(candidate)) return candidate;
+            }
+        }
+
         const linuxPaths = [
+            '/usr/lib/postgresql/19/bin/pg_dump',
+            '/usr/lib/postgresql/18/bin/pg_dump',
             '/usr/lib/postgresql/17/bin/pg_dump',
             '/usr/lib/postgresql/16/bin/pg_dump',
             '/usr/lib/postgresql/15/bin/pg_dump',
             '/usr/lib/postgresql/14/bin/pg_dump',
-            '/usr/lib/postgresql/13/bin/pg_dump',
             '/usr/bin/pg_dump',
             '/usr/local/bin/pg_dump',
         ];
@@ -48,6 +63,20 @@ export class DatabaseService {
             if (fs.existsSync(p)) return p;
         }
         return 'pg_dump';
+    }
+
+    private pgDumpPathEnv(): string {
+        const dirs = new Set<string>();
+        const pgLib = '/usr/lib/postgresql';
+        if (fs.existsSync(pgLib)) {
+            for (const v of fs.readdirSync(pgLib)) {
+                const binDir = path.join(pgLib, v, 'bin');
+                if (fs.existsSync(binDir)) dirs.add(binDir);
+            }
+        }
+        dirs.add('/usr/bin');
+        dirs.add('/usr/local/bin');
+        return [...dirs, process.env.PATH || ''].filter(Boolean).join(':');
     }
 
     /** Use TCP loopback so pg_dump uses password auth (localhost → Unix socket → peer auth fails). */
@@ -114,7 +143,7 @@ export class DatabaseService {
                 env: {
                     ...process.env,
                     PGPASSWORD: db.password,
-                    PATH: `/usr/lib/postgresql/17/bin:/usr/lib/postgresql/16/bin:/usr/lib/postgresql/15/bin:/usr/lib/postgresql/14/bin:/usr/bin:/usr/local/bin:${process.env.PATH || ''}`,
+                    PATH: this.pgDumpPathEnv(),
                 },
                 maxBuffer: 50 * 1024 * 1024,
             });
