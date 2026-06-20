@@ -346,6 +346,9 @@ export class SalesService {
           paidAmount: new Prisma.Decimal(newPaidAmount),
           remainingAmount: new Prisma.Decimal(Math.max(0, newRemainingAmount)),
           paymentStatus: newPaymentStatus,
+          ...(newPaymentStatus === PaymentStatus.PAID && {
+            status: OrderStatus.DELIVERED,
+          }),
         },
       });
 
@@ -393,6 +396,7 @@ export class SalesService {
             data: {
               delivered: true,
               deliveryDate: new Date(),
+              status: OrderStatus.DELIVERED,
             },
           });
         }
@@ -629,6 +633,7 @@ export class SalesService {
     channel?: string; // ✅ NEW
     search?: string;
     paymentMethod?: string;
+    status?: string;
     dateFilter?: string;
     startDate?: string;
     endDate?: string;
@@ -642,6 +647,7 @@ export class SalesService {
       channel, // ✅ NEW
       search,
       paymentMethod,
+      status,
       dateFilter,
       startDate,
       endDate,
@@ -657,6 +663,10 @@ export class SalesService {
 
     // ✅ NEW: Channel filter
     if (channel) where.channel = channel;
+
+    if (status) {
+      where.status = status.toUpperCase() as OrderStatus;
+    }
 
     // Payment method filter
     if (paymentMethod && paymentMethod !== 'ALL') {

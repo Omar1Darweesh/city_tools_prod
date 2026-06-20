@@ -91,6 +91,7 @@ export class SalesController {
     @Query('channel') channel?: string, // ✅ NEW
     @Query('search') search?: string,
     @Query('paymentMethod') paymentMethod?: string,
+    @Query('status') status?: string,
     @Query('dateFilter') dateFilter?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -104,6 +105,7 @@ export class SalesController {
       channel: channel && channel !== 'ALL' ? channel : undefined, // ✅ NEW
       search,
       paymentMethod,
+      status: status && status !== 'ALL' ? status : undefined,
       dateFilter,
       startDate,
       endDate,

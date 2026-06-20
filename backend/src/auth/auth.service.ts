@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma.service';
@@ -26,8 +31,14 @@ export class AuthService {
     return user.branchId ?? user.branch?.id ?? null;
   }
 
-  private assertLoginAllowed(username: string) {
-    const key = username.toLowerCase().trim();
+  private attemptKey(username: string, clientIp?: string) {
+    const user = username.toLowerCase().trim();
+    const ip = (clientIp || 'unknown').trim();
+    return `${ip}:${user}`;
+  }
+
+  private assertLoginAllowed(username: string, clientIp?: string) {
+    const key = this.attemptKey(username, clientIp);
     const now = Date.now();
     const entry = this.loginAttempts.get(key);
     if (!entry || now > entry.resetAt) {
@@ -35,14 +46,15 @@ export class AuthService {
     }
     if (entry.count >= this.maxLoginAttempts) {
       const waitMin = Math.ceil((entry.resetAt - now) / 60000);
-      throw new UnauthorizedException(
+      throw new HttpException(
         `Too many login attempts. Try again in ${waitMin} minute(s).`,
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
   }
 
-  private recordFailedLogin(username: string) {
-    const key = username.toLowerCase().trim();
+  private recordFailedLogin(username: string, clientIp?: string) {
+    const key = this.attemptKey(username, clientIp);
     const now = Date.now();
     const entry = this.loginAttempts.get(key);
     if (!entry || now > entry.resetAt) {
@@ -56,8 +68,8 @@ export class AuthService {
     this.loginAttempts.set(key, entry);
   }
 
-  private clearLoginAttempts(username: string) {
-    this.loginAttempts.delete(username.toLowerCase().trim());
+  private clearLoginAttempts(username: string, clientIp?: string) {
+    this.loginAttempts.delete(this.attemptKey(username, clientIp));
   }
 
   async validateUser(username: string, password: string): Promise<any> {
@@ -94,17 +106,17 @@ export class AuthService {
     return result;
   }
 
-  async login(loginDto: LoginDto) {
-    this.assertLoginAllowed(loginDto.username);
+  async login(loginDto: LoginDto, clientIp?: string) {
+    this.assertLoginAllowed(loginDto.username, clientIp);
 
     const user = await this.validateUser(loginDto.username, loginDto.password);
 
     if (!user) {
-      this.recordFailedLogin(loginDto.username);
+      this.recordFailedLogin(loginDto.username, clientIp);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    this.clearLoginAttempts(loginDto.username);
+    this.clearLoginAttempts(loginDto.username, clientIp);
 
     const branchId = this.resolvedBranchId(user);
 

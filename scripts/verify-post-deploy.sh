@@ -82,7 +82,7 @@ CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/ar")
 [ "$CODE" = "200" ] && check "website /ar → 200" 1 || check "website /ar → $CODE" 0
 
 # 11 New pages
-for path in about contact orders; do
+for path in about contact orders brands; do
   CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/ar/$path")
   [ "$CODE" = "200" ] && check "website /ar/$path → 200" 1 || check "website /ar/$path → $CODE" 0
 done
@@ -131,6 +131,34 @@ p=float(d.get('platformSales',{}).get('summary',{}).get('netProfit') or 0)
 print(1 if abs(f-p) < 1 else 0)
 " 2>/dev/null || echo 0)
   [ "$OK" = "1" ] && check "financial.netProfit ≈ platformSales" 1 || check "financial.netProfit mismatch" 0
+fi
+
+# 18 CORS: disallowed origin must not 500
+CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API/auth/login" \
+  -H "Origin: https://evil.com" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"wrong"}')
+[ "$CODE" != "500" ] && check "CORS evil origin → $CODE (not 500)" 1 || check "CORS evil origin → 500" 0
+
+# 19 Login rate limit returns 429 after repeated failures
+RATE=$(for i in $(seq 1 12); do
+  curl -s -o /dev/null -w "%{http_code}\n" -X POST "$API/auth/login" \
+    -H "Content-Type: application/json" \
+    -d '{"username":"ratelimit-check","password":"wrong"}'
+done | grep -c '^429$' || true)
+[ "$RATE" -ge 1 ] && check "login rate limit (429 after failures)" 1 || check "login rate limit (no 429 seen)" 0
+
+# 20 POS sales status filter
+if [ -n "$TOKEN" ]; then
+  DEL=$(curl -s -H "Authorization: Bearer $TOKEN" \
+    "$API/pos/sales?status=DELIVERED&take=1" \
+    | python3 -c "import sys,json; print(json.load(sys.stdin).get('total',-1))" 2>/dev/null || echo -1)
+  PEN=$(curl -s -H "Authorization: Bearer $TOKEN" \
+    "$API/pos/sales?status=PENDING&take=1" \
+    | python3 -c "import sys,json; print(json.load(sys.stdin).get('total',-1))" 2>/dev/null || echo -1)
+  [ "$DEL" != "$PEN" ] && [ "$DEL" -ge 0 ] && [ "$PEN" -ge 0 ] && \
+    check "POS sales status filter (DEL=$DEL PEND=$PEN)" 1 || \
+    check "POS sales status filter ignored (DEL=$DEL PEND=$PEN)" 0
 fi
 
 echo ""

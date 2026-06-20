@@ -52,7 +52,7 @@ async function bootstrap() {
           callback(null, true);
           return;
         }
-        callback(new Error(`CORS blocked: ${origin}`));
+        callback(null, false);
       },
       credentials: true,
     });
