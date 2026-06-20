@@ -89,3 +89,34 @@ export function getEgyptDayBoundsWithOffset(
   const shifted = new Date(Date.UTC(year, month - 1, day + dayOffset));
   return getEgyptDayBounds(shifted);
 }
+
+const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Parse API date query params; YYYY-MM-DD is treated as a full Egypt calendar day. */
+export function parseQueryDateRange(
+  startStr?: string,
+  endStr?: string,
+): { startDate?: Date; endDate?: Date } {
+  if (!startStr && !endStr) return {};
+
+  const parseStart = (s: string): Date => {
+    const m = DATE_ONLY_RE.exec(s.trim());
+    if (m) {
+      return egyptLocalToUtc(+m[1], +m[2], +m[3], 0, 0, 0, 0);
+    }
+    return new Date(s);
+  };
+
+  const parseEnd = (s: string): Date => {
+    const m = DATE_ONLY_RE.exec(s.trim());
+    if (m) {
+      return egyptLocalToUtc(+m[1], +m[2], +m[3], 23, 59, 59, 999);
+    }
+    return new Date(s);
+  };
+
+  return {
+    startDate: startStr ? parseStart(startStr) : undefined,
+    endDate: endStr ? parseEnd(endStr) : undefined,
+  };
+}

@@ -1,11 +1,16 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { parseQueryDateRange } from '../common/egypt-time.util';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard)
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
+
+  private dateParams(startDate?: string, endDate?: string) {
+    return parseQueryDateRange(startDate, endDate);
+  }
 
   @Get('sales-summary')
   getSalesSummary(
@@ -14,8 +19,7 @@ export class ReportsController {
     @Query('branchId') branchId?: string,
   ) {
     return this.reportsService.getSalesSummary({
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      ...this.dateParams(startDate, endDate),
       branchId: branchId ? parseInt(branchId, 10) : undefined,
     });
   }
@@ -30,8 +34,7 @@ export class ReportsController {
     return this.reportsService.getTopProducts({
       limit: limit ? parseInt(limit, 10) : undefined,
       branchId: branchId ? parseInt(branchId, 10) : undefined,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      ...this.dateParams(startDate, endDate),
     });
   }
 
@@ -54,8 +57,7 @@ export class ReportsController {
   ) {
     return this.reportsService.getDashboardMetrics({
       branchId: branchId ? parseInt(branchId, 10) : undefined,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      ...this.dateParams(startDate, endDate),
     });
   }
 
@@ -67,12 +69,10 @@ export class ReportsController {
   ) {
     return this.reportsService.getDashboardSummary({
       branchId: branchId ? parseInt(branchId, 10) : undefined,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      ...this.dateParams(startDate, endDate),
     });
   }
 
-  // ✅ NEW: Export endpoint for JSON data (no warnings!)
   @Get('export/json')
   async exportJSON(
     @Query('reportType') reportType: string = 'dashboard',
@@ -81,8 +81,7 @@ export class ReportsController {
     @Query('branchId') branchId?: string,
   ) {
     const params = {
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      ...this.dateParams(startDate, endDate),
       branchId: branchId ? parseInt(branchId, 10) : undefined,
     };
 
@@ -113,8 +112,6 @@ export class ReportsController {
     return data;
   }
 
-  // ========== NEW ENHANCED ENDPOINTS ==========
-
   @Get('enhanced')
   getEnhancedDashboardMetrics(
     @Query('branchId') branchId?: string,
@@ -123,8 +120,7 @@ export class ReportsController {
   ) {
     return this.reportsService.getEnhancedDashboardMetrics({
       branchId: branchId ? parseInt(branchId, 10) : undefined,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      ...this.dateParams(startDate, endDate),
     });
   }
 
@@ -136,8 +132,7 @@ export class ReportsController {
   ) {
     return this.reportsService.getCustomerAnalytics({
       branchId: branchId ? parseInt(branchId, 10) : undefined,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      ...this.dateParams(startDate, endDate),
     });
   }
 
@@ -149,8 +144,7 @@ export class ReportsController {
   ) {
     return this.reportsService.getReturnsAnalysis({
       branchId: branchId ? parseInt(branchId, 10) : undefined,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      ...this.dateParams(startDate, endDate),
     });
   }
 
@@ -162,8 +156,7 @@ export class ReportsController {
   ) {
     return this.reportsService.getDailySalesTrend({
       branchId: branchId ? parseInt(branchId, 10) : undefined,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      ...this.dateParams(startDate, endDate),
     });
   }
 
@@ -175,8 +168,7 @@ export class ReportsController {
   ) {
     return this.reportsService.getProfitByCategory({
       branchId: branchId ? parseInt(branchId, 10) : undefined,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      ...this.dateParams(startDate, endDate),
     });
   }
 
@@ -188,12 +180,10 @@ export class ReportsController {
   ) {
     return this.reportsService.getPeriodComparison({
       branchId: branchId ? parseInt(branchId, 10) : undefined,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      ...this.dateParams(startDate, endDate),
     });
   }
 
-  // ✅ NEW: Platform Sales Details Report
   @Get('platform-sales')
   getPlatformSalesDetails(
     @Query('branchId') branchId?: string,
@@ -203,9 +193,8 @@ export class ReportsController {
   ) {
     return this.reportsService.getPlatformSalesDetails({
       branchId: branchId ? parseInt(branchId, 10) : undefined,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
-      includePeriodComparison: includeComparison !== 'false', // Default true
+      ...this.dateParams(startDate, endDate),
+      includePeriodComparison: includeComparison !== 'false',
     });
   }
 }

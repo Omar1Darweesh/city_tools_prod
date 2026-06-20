@@ -12,6 +12,7 @@ import {
   Prisma,
   PaymentMethod,
 } from '@prisma/client';
+import { parseQueryDateRange } from '../common/egypt-time.util';
 
 @Injectable()
 export class SalesService {
@@ -668,7 +669,12 @@ export class SalesService {
       let end: Date | undefined;
       const now = new Date();
 
-      switch (dateFilter) {
+      if (startDate && endDate && (!dateFilter || dateFilter === 'custom')) {
+        const range = parseQueryDateRange(startDate, endDate);
+        start = range.startDate;
+        end = range.endDate;
+      } else if (dateFilter) {
+        switch (dateFilter) {
         case 'today':
           start = new Date(now.setHours(0, 0, 0, 0));
           end = new Date(now.setHours(23, 59, 59, 999));
@@ -701,14 +707,7 @@ export class SalesService {
           end = new Date();
           end.setHours(23, 59, 59, 999);
           break;
-        case 'custom':
-          if (startDate && endDate) {
-            start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-          }
-          break;
+        }
       }
 
       if (start && end) {

@@ -81,6 +81,10 @@ confirm_isolated() {
   echo "  App:        $APP_DIR"
   echo "  NOT touched: /root/citytools, $SOURCE_DB, $PROTECTED_PM2"
   echo ""
+  if [ "${AUTO_YES:-}" = "1" ]; then
+    log "AUTO_YES=1 — skipping confirmation"
+    return
+  fi
   read -r -p "Type YES to continue: " ans
   [ "$ans" = "YES" ] || die "Aborted."
 }
@@ -100,7 +104,11 @@ verify_production_safe() {
 
 count_rows() {
   local db=$1
-  sudo -u postgres psql -d "$db" -At <<'SQL'
+  if [ "$db" = "$TARGET_DB" ]; then
+    load_target_env
+    local pass
+    pass=$(echo "$DATABASE_URL" | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p')
+    PGPASSWORD="$pass" psql -h localhost -U "$TARGET_USER" -d "$db" -At <<'SQL'
 SELECT 'products|' || COUNT(*) FROM products
 UNION ALL SELECT 'salesinvoices|' || COUNT(*) FROM salesinvoices
 UNION ALL SELECT 'salesreturns|' || COUNT(*) FROM salesreturns
@@ -108,7 +116,19 @@ UNION ALL SELECT 'customers|' || COUNT(*) FROM customers
 UNION ALL SELECT 'suppliers|' || COUNT(*) FROM suppliers
 UNION ALL SELECT 'users|' || COUNT(*) FROM users;
 SQL
+  else
+    sudo -u postgres psql -d "$db" -At <<'SQL'
+SELECT 'products|' || COUNT(*) FROM products
+UNION ALL SELECT 'salesinvoices|' || COUNT(*) FROM salesinvoices
+UNION ALL SELECT 'salesreturns|' || COUNT(*) FROM salesreturns
+UNION ALL SELECT 'customers|' || COUNT(*) FROM customers
+UNION ALL SELECT 'suppliers|' || COUNT(*) FROM suppliers
+UNION ALL SELECT 'users|' || COUNT(*) FROM users;
+SQL
+  fi
 }
+
+LAST_DUMP_FILE=""
 
 cmd_verify() {
   log "Row counts comparison"
@@ -136,6 +156,8 @@ cmd_backup() {
 
   mv "$dump_file" "$BACKUP_DIR/"
   mv "$sql_file" "$BACKUP_DIR/"
+
+  LAST_DUMP_FILE="$BACKUP_DIR/citytools_pos_FULL_${stamp}.dump"
 
   log "Backup saved:"
   ls -lh "$BACKUP_DIR/citytools_pos_FULL_${stamp}."*
@@ -261,19 +283,30 @@ EOF
   cd "$APP_DIR/backoffice"
   npm run build
 
+  log "Reset admin password (admin / admin123)"
+  sudo -u postgres psql -d "$TARGET_DB" -f "$SCRIPT_DIR/reset-admin-password.sql" \
+    2>/dev/null || warn "reset-admin-password had warnings"
+
+  log "Seeding website content (hero slides, trust features, delivery zones)..."
+  sudo -u postgres psql -d "$TARGET_DB" -f "$SCRIPT_DIR/seed-website-test.sql" \
+    2>/dev/null || warn "seed-website-test had warnings"
+
   log "Restart $TARGET_PM2"
   pm2 restart "$TARGET_PM2" || pm2 start "$TARGET_PM2"
 
+  log "Restart website PM2"
+  pm2 restart citytools-website-city-tools 2>/dev/null \
+    || pm2 restart city-tools-website 2>/dev/null \
+    || warn "website PM2 not found — start manually if needed"
+
   log "Done. Test: https://city-tools.lamarpos.cloud/backoffice/"
-  echo "Optional website seed: sudo -u postgres psql -d $TARGET_DB -f $SCRIPT_DIR/seed-website-test.sql"
 }
 
 cmd_full() {
   cmd_backup
   echo ""
-  local dump
-  dump=$(latest_dump)
-  cmd_restore "$dump"
+  [ -n "$LAST_DUMP_FILE" ] || die "Backup did not set LAST_DUMP_FILE"
+  cmd_restore "$LAST_DUMP_FILE"
 }
 
 usage() {

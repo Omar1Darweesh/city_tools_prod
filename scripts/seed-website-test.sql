@@ -28,6 +28,24 @@ TRUNCATE store_statistics RESTART IDENTITY CASCADE;
 TRUNCATE store_trust_features RESTART IDENTITY CASCADE;
 DELETE FROM delivery_zones;
 
+CREATE TABLE IF NOT EXISTS store_hero_slides (
+  id SERIAL PRIMARY KEY,
+  bg_img VARCHAR(500) NOT NULL DEFAULT '/assets/1.jpg',
+  tag_en VARCHAR(100) DEFAULT '',
+  tag_ar VARCHAR(100) DEFAULT '',
+  title_en VARCHAR(255) DEFAULT '',
+  title_ar VARCHAR(255) DEFAULT '',
+  sub_en VARCHAR(500) DEFAULT '',
+  sub_ar VARCHAR(500) DEFAULT '',
+  accent VARCHAR(50) DEFAULT '#C0161B',
+  bg_gradient VARCHAR(200) DEFAULT 'from-[#0f1923] via-[#1a2535] to-[#0f1923]',
+  sort_order INTEGER DEFAULT 0,
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+TRUNCATE store_hero_slides RESTART IDENTITY CASCADE;
+
 -- Discount cards
 INSERT INTO store_discount_cards (badge_en, badge_ar, title_en, title_ar, desc_en, desc_ar, link_url, link_label_en, link_label_ar, bg_color, bg_image, active, sort_order, created_at, updated_at)
 VALUES
@@ -60,6 +78,12 @@ VALUES
   ('6th of October', '6 أكتوبر', 80.00, true, 4),
   ('Alexandria', 'الإسكندرية', 120.00, true, 5);
 
+-- Hero carousel slides
+INSERT INTO store_hero_slides (bg_img, tag_en, tag_ar, title_en, title_ar, sub_en, sub_ar, accent, sort_order, active, created_at, updated_at)
+VALUES
+  ('/assets/1.jpg', 'City Tools', 'سيتي تولز', 'Professional Power Tools', 'أدوات كهربائية احترافية', 'Best prices in Egypt', 'أفضل الأسعار في مصر', '#C0161B', 1, true, NOW(), NOW()),
+  ('/assets/2.jpg', 'Sale', 'تخفيضات', 'Up to 25% Off', 'خصم حتى 25%', 'On selected TOTAL & APT tools', 'على أدوات TOTAL و APT', '#2563eb', 2, true, NOW(), NOW());
+
 -- Reset product flags then set featured products by code (real backup products)
 UPDATE products SET is_popular = false, is_best_sale = false;
 
@@ -84,4 +108,5 @@ UNION ALL SELECT 'best_sale', COUNT(*) FROM products WHERE is_best_sale = true
 UNION ALL SELECT 'discount_cards', COUNT(*) FROM store_discount_cards WHERE active = true
 UNION ALL SELECT 'statistics', COUNT(*) FROM store_statistics WHERE active = true
 UNION ALL SELECT 'trust_features', COUNT(*) FROM store_trust_features WHERE active = true
-UNION ALL SELECT 'delivery_zones', COUNT(*) FROM delivery_zones WHERE active = true;
+UNION ALL SELECT 'delivery_zones', COUNT(*) FROM delivery_zones WHERE active = true
+UNION ALL SELECT 'hero_slides', COUNT(*) FROM store_hero_slides WHERE active = true;

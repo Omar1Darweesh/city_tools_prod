@@ -6,6 +6,13 @@ import * as bcrypt from 'bcrypt';
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
+  private omitPassword<T extends { passwordHash?: string }>(
+    user: T,
+  ): Omit<T, 'passwordHash'> {
+    const { passwordHash: _, ...safe } = user;
+    return safe;
+  }
+
   async findAll(params?: { skip?: number; take?: number; branchId?: number }) {
     const MAX_TAKE = 500;
     const MAX_SKIP = 100000;
@@ -37,7 +44,7 @@ export class UsersService {
     ]);
 
     return {
-      data: users,
+      data: users.map((u) => this.omitPassword(u)),
       total,
       page: Math.floor(skip / take) + 1,
       pageSize: take,
@@ -60,23 +67,25 @@ export class UsersService {
 
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    return this.prisma.user.create({
-      data: {
-        username: data.username,
-        fullName: data.fullName,
-        passwordHash,
-        branchId: data.branchId || 1, // Default branch
-        active: true,
-        roles: data.roleId
-          ? {
-              create: { roleId: Number(data.roleId) },
-            }
-          : undefined,
-      },
-      include: {
-        roles: { include: { role: true } },
-      },
-    });
+    return this.omitPassword(
+      await this.prisma.user.create({
+        data: {
+          username: data.username,
+          fullName: data.fullName,
+          passwordHash,
+          branchId: data.branchId || 1, // Default branch
+          active: true,
+          roles: data.roleId
+            ? {
+                create: { roleId: Number(data.roleId) },
+              }
+            : undefined,
+        },
+        include: {
+          roles: { include: { role: true } },
+        },
+      }),
+    );
   }
 
   async update(id: number, data: any) {
@@ -95,28 +104,32 @@ export class UsersService {
     const roleId = data.roleId;
     delete data.roleId; // Remove from data passed to user.update
 
-    return this.prisma.user.update({
-      where: { id },
-      data: {
-        ...data,
-        roles: roleId
-          ? {
-              deleteMany: {},
-              create: { roleId: Number(roleId) },
-            }
-          : undefined,
-      },
-      include: {
-        roles: { include: { role: true } },
-      },
-    });
+    return this.omitPassword(
+      await this.prisma.user.update({
+        where: { id },
+        data: {
+          ...data,
+          roles: roleId
+            ? {
+                deleteMany: {},
+                create: { roleId: Number(roleId) },
+              }
+            : undefined,
+        },
+        include: {
+          roles: { include: { role: true } },
+        },
+      }),
+    );
   }
 
   async remove(id: number) {
-    return this.prisma.user.update({
-      where: { id },
-      data: { active: false },
-    });
+    return this.omitPassword(
+      await this.prisma.user.update({
+        where: { id },
+        data: { active: false },
+      }),
+    );
   }
 
   async findById(id: number) {
