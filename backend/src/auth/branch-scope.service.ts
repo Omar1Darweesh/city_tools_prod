@@ -11,7 +11,10 @@ export class BranchScopeService {
   ): Promise<number | undefined> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { roles: { include: { role: true } } },
+      include: {
+        branch: true,
+        roles: { include: { role: true } },
+      },
     });
 
     if (!user) {
@@ -19,19 +22,29 @@ export class BranchScopeService {
     }
 
     const isAdmin = user.roles.some((ur) => ur.role.name === 'ADMIN');
+    const userBranchId = user.branchId ?? user.branch?.id ?? undefined;
+
+    if (requestedBranchId != null) {
+      const branch = await this.prisma.branch.findUnique({
+        where: { id: requestedBranchId },
+      });
+      if (!branch) {
+        throw new ForbiddenException('Invalid branch');
+      }
+    }
 
     if (isAdmin) {
-      return requestedBranchId ?? user.branchId ?? undefined;
+      return requestedBranchId ?? userBranchId;
     }
 
     if (
       requestedBranchId != null &&
-      user.branchId != null &&
-      requestedBranchId !== user.branchId
+      userBranchId != null &&
+      requestedBranchId !== userBranchId
     ) {
       throw new ForbiddenException('Cannot access data for another branch');
     }
 
-    return requestedBranchId ?? user.branchId ?? undefined;
+    return requestedBranchId ?? userBranchId;
   }
 }

@@ -72,9 +72,9 @@ export class StoreController {
       itemTypeId: itemTypeId ? Number(itemTypeId) : undefined,
       search,
       sort,
-      isPopular:
-        isPopular === 'true' || popular === 'true' ? true : undefined,
-      isBestSale: isBestSale === 'true' ? true : undefined,
+      isPopular: isPopular === 'true' ? true : undefined,
+      isBestSale:
+        isBestSale === 'true' || popular === 'true' ? true : undefined,
       discounted: discounted === 'true' ? true : undefined,
       badge,
       brand,

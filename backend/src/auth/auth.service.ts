@@ -19,6 +19,13 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+  private resolvedBranchId(user: {
+    branchId: number | null;
+    branch?: { id: number } | null;
+  }): number | null {
+    return user.branchId ?? user.branch?.id ?? null;
+  }
+
   private assertLoginAllowed(username: string) {
     const key = username.toLowerCase().trim();
     const now = Date.now();
@@ -99,10 +106,12 @@ export class AuthService {
 
     this.clearLoginAttempts(loginDto.username);
 
+    const branchId = this.resolvedBranchId(user);
+
     const payload = {
       sub: user.id,
       username: user.username,
-      branchId: user.branchId,
+      branchId,
     };
 
     const permissions = user.roles.flatMap((ur: any) =>
@@ -118,7 +127,7 @@ export class AuthService {
         id: user.id,
         username: user.username,
         fullName: user.fullName,
-        branchId: user.branchId,
+        branchId,
         branch: user.branch,
         roles,
         permissions,
@@ -163,10 +172,12 @@ export class AuthService {
       }
 
       // ✅ Step 5: Create new tokens with fresh data
+      const branchId = this.resolvedBranchId(user);
+
       const newPayload = {
         sub: user.id,
         username: user.username,
-        branchId: user.branchId,
+        branchId,
       };
 
       // ✅ Step 6: Return new tokens with updated user info
@@ -183,6 +194,7 @@ export class AuthService {
           id: user.id,
           username: user.username,
           fullName: user.fullName,
+          branchId,
           branch: user.branch,
           roles,
           permissions,
@@ -228,7 +240,7 @@ export class AuthService {
       id: user.id,
       username: user.username,
       fullName: user.fullName,
-      branchId: user.branchId,
+      branchId: this.resolvedBranchId(user),
       branch: user.branch,
       roles,
       permissions,

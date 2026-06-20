@@ -72,7 +72,7 @@ export class UsersController {
       id: user.id,
       username: user.username,
       fullName: user.fullName,
-      branchId: user.branchId,
+      branchId: user.branchId ?? user.branch?.id ?? null,
       branch: user.branch,
       roles,
       permissions,

@@ -41,11 +41,12 @@ Both `citytools.org` and `city-tools.lamarpos.cloud` should point at the **same*
 - Website + backend PM2 restart in `cmd_fix`
 
 ### Major fixes (latest batch)
-- **M1** Reports branch IDOR — non-admin cannot query other branches
+- **M1** Reports branch IDOR — non-admin blocked; invalid branchId → 403
 - **M2** Financial `netProfit` now deducts tax (matches platform sales)
 - **M5** `GET /api/stock/transfers` list endpoint
-- **m4** `?popular=true` alias on store products
-- **m3** `profile.branchId` in `/api/users/profile`
+- **m4** `?popular=true` maps to `isBestSale` on store products
+- **m3** `profile.branchId` falls back to `branch.id` when DB scalar is null
+- **C2** `reports/enhanced` same-day dates + top-level `totalInvoices` / `grossSales`
 - **Website** `/ar/about`, `/ar/contact`, `/ar/orders` (track by invoice)
 - **API** `GET /api/store/orders/track?invoiceNo=&phone=`
 

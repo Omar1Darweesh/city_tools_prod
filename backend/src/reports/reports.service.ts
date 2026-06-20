@@ -5,6 +5,7 @@ import {
   getEgyptDayBounds,
   getEgyptDayBoundsWithOffset,
   getEgyptHourLabel,
+  normalizeReportDateRange,
 } from '../common/egypt-time.util';
 
 @Injectable()
@@ -591,12 +592,26 @@ export class ReportsService {
     return lowStockProducts;
   }
 
+  private withNormalizedDates(params?: {
+    branchId?: number;
+    startDate?: Date;
+    endDate?: Date;
+  }) {
+    if (!params) return params;
+    const { startDate, endDate } = normalizeReportDateRange(
+      params.startDate,
+      params.endDate,
+    );
+    return { ...params, startDate, endDate };
+  }
+
   async getDashboardMetrics(params?: {
     branchId?: number;
     startDate?: Date;
     endDate?: Date;
   }) {
-    const { branchId, startDate, endDate } = params || {};
+    const scoped = this.withNormalizedDates(params);
+    const { branchId, startDate, endDate } = scoped || {};
 
     const [
       salesSummary,
@@ -1494,7 +1509,8 @@ export class ReportsService {
     startDate?: Date;
     endDate?: Date;
   }) {
-    const { branchId, startDate, endDate } = params || {};
+    const scoped = this.withNormalizedDates(params);
+    const { branchId, startDate, endDate } = scoped || {};
 
     const [
       basicMetrics,
@@ -1514,6 +1530,8 @@ export class ReportsService {
 
     return {
       ...basicMetrics,
+      totalInvoices: basicMetrics.sales?.orderCount ?? 0,
+      grossSales: basicMetrics.sales?.totalRevenue ?? 0,
       customers: customerAnalytics,
       returns: returnsAnalysis,
       trends: {

@@ -120,3 +120,19 @@ export function parseQueryDateRange(
     endDate: endStr ? parseEnd(endStr) : undefined,
   };
 }
+
+/** Ensure report queries never use a zero-length window (same instant start/end). */
+export function normalizeReportDateRange(
+  startDate?: Date,
+  endDate?: Date,
+): { startDate?: Date; endDate?: Date } {
+  if (!startDate && !endDate) return {};
+  if (startDate && endDate && endDate.getTime() <= startDate.getTime()) {
+    const { year, month, day } = getDatePartsInTimezone(startDate);
+    return {
+      startDate: egyptLocalToUtc(year, month, day, 0, 0, 0, 0),
+      endDate: egyptLocalToUtc(year, month, day, 23, 59, 59, 999),
+    };
+  }
+  return { startDate, endDate };
+}

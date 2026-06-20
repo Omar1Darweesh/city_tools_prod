@@ -97,6 +97,42 @@ if [ -n "$TOKEN" ]; then
   [ "$CODE" = "200" ] && check "GET /stock/transfers → 200" 1 || check "GET /stock/transfers → $CODE" 0
 fi
 
+# 14 Enhanced report today (totalInvoices not null)
+if [ -n "$TOKEN" ]; then
+  INV=$(curl -s -H "Authorization: Bearer $TOKEN" \
+    "$API/reports/enhanced?branchId=1&startDate=$TODAY&endDate=$TODAY" \
+    | python3 -c "import sys,json; v=json.load(sys.stdin).get('totalInvoices'); print('null' if v is None else v)" 2>/dev/null || echo null)
+  [ "$INV" != "null" ] && check "reports/enhanced today totalInvoices=$INV" 1 || check "reports/enhanced today totalInvoices=null" 0
+fi
+
+# 15 Profile branchId
+if [ -n "$TOKEN" ]; then
+  BID=$(curl -s -H "Authorization: Bearer $TOKEN" "$API/users/profile" \
+    | python3 -c "import sys,json; v=json.load(sys.stdin).get('branchId'); print('null' if v is None else v)" 2>/dev/null || echo null)
+  [ "$BID" != "null" ] && check "users/profile branchId=$BID" 1 || check "users/profile branchId=null" 0
+fi
+
+# 16 IDOR invalid branch → 403
+if [ -n "$TOKEN" ]; then
+  CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" \
+    "$API/reports/dashboard-summary?branchId=999&startDate=$TODAY&endDate=$TODAY")
+  [ "$CODE" = "403" ] && check "IDOR branchId=999 → 403" 1 || check "IDOR branchId=999 → $CODE" 0
+fi
+
+# 17 netProfit alignment (financial vs platformSales)
+if [ -n "$TOKEN" ]; then
+  OK=$(curl -s -H "Authorization: Bearer $TOKEN" \
+    "$API/reports/enhanced?branchId=1&startDate=$TODAY&endDate=$TODAY" \
+    | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+f=float(d.get('financial',{}).get('netProfit') or 0)
+p=float(d.get('platformSales',{}).get('summary',{}).get('netProfit') or 0)
+print(1 if abs(f-p) < 1 else 0)
+" 2>/dev/null || echo 0)
+  [ "$OK" = "1" ] && check "financial.netProfit ≈ platformSales" 1 || check "financial.netProfit mismatch" 0
+fi
+
 echo ""
 echo "=== Result: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
