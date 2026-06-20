@@ -5,6 +5,7 @@ import ProductForm from './ProductForm';
 import ProductAuditHistory from './ProductAuditHistory';
 import ProductTransactions from './ProductTransactions';
 import apiClient from '../api/client';
+import { getFirstProductImageUrl, loadExportImage } from '../utils/export-image';
 
 interface Product {
     id: number;
@@ -281,48 +282,14 @@ export default function Products() {
             const response = await apiClient.get('/products', { params });
             const allProducts = response.data.data || response.data || [];
 
-            type ImgExt = 'jpeg' | 'png' | 'gif';
-            const imageResults: ({ buffer: ArrayBuffer; ext: ImgExt; rowIdx: number } | null)[] = [];
-            const fetchTasks: Promise<void>[] = [];
-
-            allProducts.forEach((p: any, idx: number) => {
-                const rawUrl = Array.isArray(p.images) ? (p.images[0] || '') : (typeof p.images === 'string' ? p.images : '');
-                if (!rawUrl) { imageResults.push(null); return; }
-
-                const m = rawUrl.match(/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/);
-                if (m) {
-                    const ext: ImgExt = m[1] === 'jpg' ? 'jpeg' : m[1] === 'webp' ? 'png' : m[1] as ImgExt;
-                    const bin = atob(m[2]);
-                    const buf = new Uint8Array(bin.length);
-                    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-                    imageResults.push({ buffer: buf.buffer, ext, rowIdx: idx });
-                    return;
-                }
-                if (rawUrl.startsWith('http')) {
-                    imageResults.push(null);
-                    fetchTasks.push(
-                        fetch(rawUrl, { mode: 'cors' })
-                            .then(r => r.ok ? r.arrayBuffer() : null)
-                            .then(buf => {
-                                if (buf) {
-                                    const rawExt = rawUrl.match(/\.(png|jpe?g|gif|webp)(\?|$)/)?.[1]?.replace('jpg', 'jpeg') || 'jpeg';
-                                    const ext: ImgExt = rawExt === 'webp' ? 'png' : rawExt as ImgExt;
-                                    imageResults[idx] = { buffer: buf, ext, rowIdx: idx };
-                                }
-                            })
-                            .catch(() => {})
-                    );
-                    return;
-                }
-                imageResults.push(null);
-            });
+            const imageResults = await Promise.all(
+                allProducts.map((p: any) => loadExportImage(getFirstProductImageUrl(p.images))),
+            );
 
             const trunc = (val: any, max = 32767) => {
                 const s = String(val ?? '');
                 return s.length > max ? s.slice(0, max) : s;
             };
-
-            await Promise.all(fetchTasks);
 
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('المنتجات');
@@ -419,44 +386,9 @@ export default function Products() {
             const response = await apiClient.get('/stock/reserved');
             const items = response.data.data || [];
 
-            type ImgExt = 'jpeg' | 'png' | 'gif';
-            const imageResults: ({ buffer: ArrayBuffer; ext: ImgExt; rowIdx: number } | null)[] = [];
-            const fetchTasks: Promise<void>[] = [];
-
-            items.forEach((item: any, idx: number) => {
-                const images: string[] = Array.isArray(item.productImages) ? item.productImages : [];
-                const rawUrl = images[0] || '';
-                if (!rawUrl) { imageResults.push(null); return; }
-
-                const m = rawUrl.match(/^data:image\/(png|jpeg|jpg|gif|webp);base64,(.+)$/);
-                if (m) {
-                    const ext: ImgExt = m[1] === 'jpg' ? 'jpeg' : m[1] === 'webp' ? 'png' : m[1] as ImgExt;
-                    const bin = atob(m[2]);
-                    const buf = new Uint8Array(bin.length);
-                    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-                    imageResults.push({ buffer: buf.buffer, ext, rowIdx: idx });
-                    return;
-                }
-                if (rawUrl.startsWith('http')) {
-                    imageResults.push(null);
-                    fetchTasks.push(
-                        fetch(rawUrl, { mode: 'cors' })
-                            .then(r => r.ok ? r.arrayBuffer() : null)
-                            .then(buf => {
-                                if (buf) {
-                                    const rawExt = rawUrl.match(/\.(png|jpe?g|gif|webp)(\?|$)/)?.[1]?.replace('jpg', 'jpeg') || 'jpeg';
-                                    const ext: ImgExt = rawExt === 'webp' ? 'png' : rawExt as ImgExt;
-                                    imageResults[idx] = { buffer: buf, ext, rowIdx: idx };
-                                }
-                            })
-                            .catch(() => {})
-                    );
-                    return;
-                }
-                imageResults.push(null);
-            });
-
-            await Promise.all(fetchTasks);
+            const imageResults = await Promise.all(
+                items.map((item: any) => loadExportImage(getFirstProductImageUrl(item.productImages))),
+            );
 
             const workbook = new ExcelJS.Workbook();
 
