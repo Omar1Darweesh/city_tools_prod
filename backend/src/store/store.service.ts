@@ -9,6 +9,12 @@ const productInclude = {
   category: true,
 };
 
+function normalizeStoreRating(rating?: number | null): number {
+  const value = Number(rating ?? 0);
+  if (!Number.isFinite(value) || value <= 0 || value > 5) return 0;
+  return value;
+}
+
 function mapProduct(p: any, showRatings = true) {
   const availableStock = Math.max(0, (p as any).currentStock ?? 0);
   const reservedStock = (p as any).reservedStock ?? 0;
@@ -24,7 +30,7 @@ function mapProduct(p: any, showRatings = true) {
     brand: p.brand || '',
     description: p.description || '',
     images: Array.isArray(p.images) ? p.images : [],
-    rating: showRatings ? (p.rating || 0) : 0,
+    rating: showRatings ? normalizeStoreRating(p.rating) : 0,
     inStock: availableStock > 0,
     stock: availableStock,
     reservedStock,

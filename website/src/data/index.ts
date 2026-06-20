@@ -1,6 +1,7 @@
 import type { MockProduct, MockCategory, MockSubcategory, MockItemType, MockBrand, MockStatistic, MockDiscountCard, StockThreshold } from "./mock-data";
 import { categories as mockCategories, brands as mockBrands, statistics as mockStatistics, discountCards as mockDiscountCards } from "./mock-data";
 import { api } from "@/lib/api";
+import { normalizeRating } from "@/lib/format-price";
 
 export type { MockProduct, MockCategory, MockSubcategory, MockItemType, MockBrand, MockStatistic, MockDiscountCard, StockThreshold };
 
@@ -42,7 +43,7 @@ function mapProduct(p: any): MockProduct { // eslint-disable-line @typescript-es
       }
       return [];
     })(),
-    rating: p.rating || 0,
+    rating: normalizeRating(p.rating),
     inStock: p.inStock ?? true,
     stock: p.stock ?? (p.inStock ? 999 : 0),
     badge: p.badge || null,

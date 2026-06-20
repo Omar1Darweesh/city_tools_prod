@@ -10,6 +10,7 @@ import Image from "next/image";
 import { ShoppingCart, Star, Check, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, Zap, Wrench, Shield, Truck, BadgePercent, HeadphonesIcon, Package, Bolt, Droplets, Factory, Settings, Toolbox, DollarSign } from "lucide-react";
 import { useCart } from "@/components/cart/cart-context";
 import { buildLogoByName, getCategoryLogo } from "@/lib/brand-logo";
+import { formatPrice, normalizeRating } from "@/lib/format-price";
 import { groupSubcategoriesByName, subcategoryGroupProductsHref } from "@/lib/subcategory-groups";
 import type { MockProduct, MockCategory, MockSubcategory, MockBrand, MockStatistic, MockDiscountCard } from "@/data";
 
@@ -95,7 +96,9 @@ function CircleScroller({ children }: { children: React.ReactNode }) {
 
 /* ─── product card ─── */
 function ProductCard({ product, locale }: { product: MockProduct; locale: string }) {
+  const isRtl = locale === "ar";
   const price = product.discountPrice ?? product.priceRetail;
+  const rating = normalizeRating(product.rating);
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
   const gradient = "from-gray-500 to-gray-600";
@@ -140,25 +143,31 @@ function ProductCard({ product, locale }: { product: MockProduct; locale: string
             </h3>
           </Link>
           <div className="mt-1.5 flex h-4 items-center gap-0.5">
-            {product.rating > 0 ? (
+            {rating > 0 ? (
               <>
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className={`size-3 ${i < Math.floor(product.rating) ? "star-filled" : "star-empty"}`} />
+                  <Star key={i} className={`size-3 ${i < Math.floor(rating) ? "star-filled" : "star-empty"}`} />
                 ))}
-                <span className="ms-1 text-[10px] text-muted-foreground">({product.rating})</span>
+                <span className="ms-1 text-[10px] text-muted-foreground">({rating.toFixed(1)})</span>
               </>
             ) : null}
           </div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-base font-bold text-primary">{price} {locale === "ar" ? "ج.م" : "EGP"}</span>
-            {product.discountPrice && (
-              <span className="text-xs text-muted-foreground line-through">{product.priceRetail}</span>
-            )}
+          <div className="mt-2 min-h-[2.5rem]">
+            <div className="flex flex-wrap items-baseline gap-1.5">
+              <span className="text-base font-bold text-primary">{formatPrice(price, locale)}</span>
+              {product.discountPrice && (
+                <span className="text-xs text-muted-foreground line-through">{formatPrice(product.priceRetail, locale)}</span>
+              )}
+            </div>
+            <p className={`mt-0.5 text-[10px] ${product.inStock ? "text-emerald-600" : "text-destructive"}`}>
+              {product.inStock ? (isRtl ? "متوفر" : "In stock") : (isRtl ? "غير متوفر" : "Out of stock")}
+            </p>
           </div>
         </div>
         <button
           onClick={handleAdd}
-          className={`add-btn mt-2 flex h-8 w-full shrink-0 items-center justify-center gap-1.5 rounded-full text-xs font-semibold transition-all ${added ? "bg-emerald-500 text-white" : "bg-primary text-white hover:bg-red-700"}`}
+          disabled={!product.inStock}
+          className={`add-btn mt-2 flex h-8 w-full shrink-0 items-center justify-center gap-1.5 rounded-full text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${added ? "bg-emerald-500 text-white" : "bg-primary text-white hover:bg-red-700"}`}
         >
           {added ? <><Check className="size-3.5" />{locale === "ar" ? "تمت الإضافة" : "Added"}</> : <><ShoppingCart className="size-3.5" />{locale === "ar" ? "أضف للسلة" : "Add to Cart"}</>}
         </button>

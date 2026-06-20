@@ -6,11 +6,14 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/components/cart/cart-context";
 import ProductImage from "@/components/products/product-image";
 import { productDetailPath } from "@/lib/product-url";
+import { formatPrice, normalizeRating } from "@/lib/format-price";
 import { ShoppingCart, Star, Check } from "lucide-react";
 import { useState } from "react";
 
 export function ProductListItem({ product, locale }: { product: MockProduct; locale: string }) {
+  const isRtl = locale === "ar";
   const price = product.discountPrice ?? product.priceRetail;
+  const rating = normalizeRating(product.rating);
   const gradient = "from-gray-500 to-gray-600";
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
@@ -55,19 +58,22 @@ export function ProductListItem({ product, locale }: { product: MockProduct; loc
           <Link href={productDetailPath(product)} className="hover:text-primary transition-colors">
             <h3 className="font-medium line-clamp-1">{locale === "ar" ? product.nameAr : product.nameEn}</h3>
           </Link>
-          {product.rating > 0 && (
+          {rating > 0 && (
             <div className="flex items-center gap-1 mt-1">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} className={`size-3 ${i < Math.floor(product.rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/20"}`} />
+                <Star key={i} className={`size-3 ${i < Math.floor(rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/20"}`} />
               ))}
             </div>
           )}
           <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-lg font-bold">{price} {locale === "ar" ? "ج.م" : "EGP"}</span>
+            <span className="text-lg font-bold">{formatPrice(price, locale)}</span>
             {product.discountPrice && (
-              <span className="text-xs text-muted-foreground line-through">{product.priceRetail} {locale === "ar" ? "ج.م" : "EGP"}</span>
+              <span className="text-xs text-muted-foreground line-through">{formatPrice(product.priceRetail, locale)}</span>
             )}
           </div>
+          <p className={`text-xs mt-0.5 ${product.inStock ? "text-emerald-600" : "text-destructive"}`}>
+            {product.inStock ? (isRtl ? "متوفر" : "In stock") : (isRtl ? "غير متوفر" : "Out of stock")}
+          </p>
         </div>
         <Button
           size="sm"
