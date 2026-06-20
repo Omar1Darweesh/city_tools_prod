@@ -140,7 +140,7 @@ export function Footer() {
               {[
                 { href: "/products",   ar: "المنتجات",        en: "Products" },
                 { href: "/categories", ar: "الأقسام",         en: "Categories" },
-                { href: "/brands",     ar: "الماركات",        en: "Brands" },
+                { href: "/brands",     ar: "الفئات",          en: "Types" },
                 { href: "/about",      ar: "عن الشركة",       en: "About Us" },
                 { href: "/contact",    ar: "اتصل بنا",        en: "Contact Us" },
               ].map((l) => (

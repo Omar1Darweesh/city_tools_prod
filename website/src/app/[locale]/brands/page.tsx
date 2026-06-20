@@ -1,4 +1,4 @@
-import BrandsView from "./view";
+import TypesView from "../types/view";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://citytools.org";
 
@@ -10,11 +10,11 @@ export async function generateMetadata({
   const { locale } = await params;
   const siteName = locale === "ar" ? "سيتي تولز" : "City Tools";
   const title =
-    locale === "ar" ? `الماركات - ${siteName}` : `Brands - ${siteName}`;
+    locale === "ar" ? `الفئات - ${siteName}` : `Product Types - ${siteName}`;
   const description =
     locale === "ar"
-      ? "تصفح جميع الماركات العالمية المعتمدة في سيتي تولز"
-      : "Browse all trusted global brands at City Tools";
+      ? "تصفح جميع الفئات: يدوي، كهربائي، اكسسوارات وأكثر في سيتي تولز"
+      : "Browse product types at City Tools: manual, electric, accessories and more";
   return {
     title,
     description,
@@ -31,5 +31,5 @@ export async function generateMetadata({
 }
 
 export default function Page() {
-  return <BrandsView />;
+  return <TypesView />;
 }
