@@ -52,6 +52,7 @@ class ApiClient {
     categoryId?: number;
     subcategoryId?: number;
     subcategoryIds?: number[];
+    subcategoryName?: string;
     itemTypeId?: number;
     search?: string;
     sort?: string;
@@ -70,6 +71,7 @@ class ApiClient {
     if (params?.categoryId) searchParams.set("categoryId", String(params.categoryId));
     if (params?.subcategoryId) searchParams.set("subcategoryId", String(params.subcategoryId));
     if (params?.subcategoryIds?.length) searchParams.set("subcategoryIds", params.subcategoryIds.join(","));
+    if (params?.subcategoryName) searchParams.set("subcategoryName", params.subcategoryName);
     if (params?.itemTypeId) searchParams.set("itemTypeId", String(params.itemTypeId));
     if (params?.search) searchParams.set("search", params.search);
     if (params?.sort) searchParams.set("sort", params.sort);

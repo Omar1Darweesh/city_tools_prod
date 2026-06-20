@@ -501,7 +501,7 @@ export default function HomePage() {
                 return (
                   <Link
                     key={group.key}
-                    href={subcategoryGroupProductsHref(group.ids)}
+                    href={subcategoryGroupProductsHref(group)}
                     className="category-circle snap-start flex-shrink-0 flex flex-col items-center gap-2 group"
                     style={{ animationDelay: `${i * 60}ms` }}
                   >

@@ -83,7 +83,7 @@ export default function TypesPage() {
             return (
               <Link
                 key={group.key}
-                href={subcategoryGroupProductsHref(group.ids)}
+                href={subcategoryGroupProductsHref(group)}
                 className="group flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 transition-all hover:border-primary hover:shadow-md"
               >
                 <div

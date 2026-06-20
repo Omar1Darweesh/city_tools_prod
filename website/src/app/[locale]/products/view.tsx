@@ -24,6 +24,7 @@ function ProductsContent() {
   const categoryParam = searchParams.get("categoryId");
   const subcategoryParam = searchParams.get("subcategoryId");
   const subcategoryIdsParam = searchParams.get("subcategoryIds");
+  const subcategoryNameParam = searchParams.get("subcategoryName") || "";
   const brandParam = searchParams.get("brand") || "";
 
   const parseSubcategoryIds = (raw: string | null) =>
@@ -40,8 +41,11 @@ function ProductsContent() {
   const [filterSubcategoryIds, setFilterSubcategoryIds] = useState<number[]>(() =>
     parseSubcategoryIds(subcategoryIdsParam),
   );
+  const [filterSubcategoryName, setFilterSubcategoryName] = useState<string>(
+    subcategoryNameParam.trim() || "",
+  );
   const [filterSubcategory, setFilterSubcategory] = useState<number | undefined>(
-    subcategoryIdsParam ? undefined : subcategoryParam ? Number(subcategoryParam) : undefined
+    subcategoryIdsParam || subcategoryNameParam ? undefined : subcategoryParam ? Number(subcategoryParam) : undefined
   );
   const [filterItemType, setFilterItemType] = useState<number | undefined>(undefined);
   const [filterPopular, setFilterPopular] = useState(false);
@@ -63,6 +67,7 @@ function ProductsContent() {
     setSelectedCategory(catId);
     setFilterSubcategory(undefined);
     setFilterSubcategoryIds([]);
+    setFilterSubcategoryName("");
     setFilterItemType(undefined);
     setShowFilters(false);
   };
@@ -70,6 +75,7 @@ function ProductsContent() {
   const handleSubcategoryChange = (subId: number | undefined) => {
     setFilterSubcategory(subId);
     setFilterSubcategoryIds([]);
+    setFilterSubcategoryName("");
     setFilterItemType(undefined);
   };
 
@@ -100,6 +106,7 @@ function ProductsContent() {
     setSelectedCategory(undefined);
     setFilterSubcategory(undefined);
     setFilterSubcategoryIds([]);
+    setFilterSubcategoryName("");
     setFilterItemType(undefined);
     setFilterBrand(undefined);
     setFilterPopular(false);
@@ -120,6 +127,7 @@ function ProductsContent() {
     setSelectedCategory(undefined);
     setFilterSubcategory(undefined);
     setFilterSubcategoryIds([]);
+    setFilterSubcategoryName("");
     setFilterItemType(undefined);
     setMinRating(0);
     setStockThreshold("all");
@@ -128,7 +136,20 @@ function ProductsContent() {
     router.push("/products");
   };
 
-  const filterDeps = [query, selectedCategory, filterSubcategory, filterSubcategoryIds.join(","), filterItemType, filterBrand, sort, filterPopular, filterBestSale, filterDiscounted, filterBadge, minRating, stockThreshold];
+  useEffect(() => {
+    setSearchInput(query);
+    setSelectedCategory(categoryParam ? Number(categoryParam) : undefined);
+    setFilterBrand(brandParam || undefined);
+    setFilterSubcategoryIds(parseSubcategoryIds(subcategoryIdsParam));
+    setFilterSubcategoryName(subcategoryNameParam.trim());
+    setFilterSubcategory(
+      subcategoryIdsParam || subcategoryNameParam ? undefined : subcategoryParam ? Number(subcategoryParam) : undefined,
+    );
+    setFilterItemType(undefined);
+    setPage(1);
+  }, [query, categoryParam, subcategoryParam, subcategoryIdsParam, subcategoryNameParam, brandParam]);
+
+  const filterDeps = [query, selectedCategory, filterSubcategory, filterSubcategoryIds.join(","), filterSubcategoryName, filterItemType, filterBrand, sort, filterPopular, filterBestSale, filterDiscounted, filterBadge, minRating, stockThreshold];
 
   useEffect(() => { setPage(1); }, filterDeps);
 
@@ -138,8 +159,9 @@ function ProductsContent() {
       limit: PAGE_SIZE,
       search: query,
       categoryId: selectedCategory,
-      subcategoryId: filterSubcategoryIds.length ? undefined : filterSubcategory,
-      subcategoryIds: filterSubcategoryIds.length ? filterSubcategoryIds : undefined,
+      subcategoryId: filterSubcategoryIds.length || filterSubcategoryName ? undefined : filterSubcategory,
+      subcategoryIds: filterSubcategoryName ? undefined : filterSubcategoryIds.length ? filterSubcategoryIds : undefined,
+      subcategoryName: filterSubcategoryName || undefined,
       itemTypeId: filterItemType,
       brand: filterBrand,
       sort,

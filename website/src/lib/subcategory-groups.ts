@@ -43,8 +43,11 @@ export function groupSubcategoriesByName(
   });
 }
 
-export function subcategoryGroupProductsHref(ids: number[]): string {
-  if (ids.length === 0) return "/products";
-  if (ids.length === 1) return `/products?subcategoryId=${ids[0]}`;
-  return `/products?subcategoryIds=${ids.join(",")}`;
+export function subcategoryGroupProductsHref(group: Pick<SubcategoryGroup, "name" | "nameAr" | "ids">): string {
+  const label = (group.nameAr || group.name).trim();
+  if (label) {
+    return `/products?subcategoryName=${encodeURIComponent(label)}`;
+  }
+  if (group.ids.length === 1) return `/products?subcategoryId=${group.ids[0]}`;
+  return `/products?subcategoryIds=${group.ids.join(",")}`;
 }

@@ -83,6 +83,7 @@ export const store = {
     categoryId?: number;
     subcategoryId?: number;
     subcategoryIds?: number[];
+    subcategoryName?: string;
     itemTypeId?: number;
     search?: string;
     sort?: string;
