@@ -91,6 +91,8 @@ export const adminApi = {
     };
   },
 
+  getCatalogStats: () => authFetch("/products/catalog-stats"),
+
   getProduct: async (id: number) => {
     const res = await authFetch(`/products/${id}`);
     return normalizeProduct(res);

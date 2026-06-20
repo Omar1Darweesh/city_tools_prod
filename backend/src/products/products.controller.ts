@@ -147,6 +147,12 @@ export class ProductsController {
   async getCostVerification() {
     return this.productsService.getCostVerification();
   }
+
+  @Get('catalog-stats')
+  getCatalogStats() {
+    return this.productsService.getCatalogStats();
+  }
+
   @Post()
   create(@Body() createProductDto: CreateProductDto) {
     return this.productsService.create(createProductDto);

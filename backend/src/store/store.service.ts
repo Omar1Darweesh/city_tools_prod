@@ -217,13 +217,38 @@ export class StoreService {
     };
   }
 
+  /** Public storefront: only products with a positive sellable price. */
+  private readonly hasPublicPrice: Prisma.ProductWhereInput = {
+    OR: [{ priceRetail: { gt: 0 } }, { discountPrice: { gt: 0 } }],
+  };
+
+  private applyPublicStoreProductFilter(
+    where: Prisma.ProductWhereInput,
+    visibility: { show: boolean; categoryId: number | null },
+  ): Prisma.ProductWhereInput {
+    return this.applyDefectiveProductFilter(
+      { AND: [where, this.hasPublicPrice] },
+      visibility,
+    );
+  }
+
+  private assertPublicProductPrice(product: { priceRetail: unknown; discountPrice: unknown }) {
+    const retail = Number(product.priceRetail ?? 0);
+    const discount =
+      product.discountPrice != null ? Number(product.discountPrice) : null;
+    const effective = discount != null && discount > 0 ? discount : retail;
+    if (!Number.isFinite(effective) || effective <= 0) {
+      throw new NotFoundException('Product not found');
+    }
+  }
+
   async getFeatured() {
     const [showR, visibility] = await Promise.all([
       this.shouldShowRatings(),
       this.getDefectiveCategoryVisibility(),
     ]);
     const products = await this.prisma.product.findMany({
-      where: this.applyDefectiveProductFilter({ active: true, isPopular: true }, visibility),
+      where: this.applyPublicStoreProductFilter({ active: true, isPopular: true }, visibility),
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: { category: true },
@@ -238,7 +263,7 @@ export class StoreService {
       this.getDefectiveCategoryVisibility(),
     ]);
     const products = await this.prisma.product.findMany({
-      where: this.applyDefectiveProductFilter({ active: true, isBestSale: true }, visibility),
+      where: this.applyPublicStoreProductFilter({ active: true, isBestSale: true }, visibility),
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: { category: true },
@@ -319,7 +344,7 @@ export class StoreService {
     else if (sort === 'name_asc') orderBy = { nameEn: 'asc' };
     else if (sort === 'name_desc') orderBy = { nameEn: 'desc' };
 
-    const filteredWhere = this.applyDefectiveProductFilter(where, visibility);
+    const filteredWhere = this.applyPublicStoreProductFilter(where, visibility);
 
     const [data, total, showR] = await Promise.all([
       this.prisma.product.findMany({
@@ -393,6 +418,8 @@ export class StoreService {
       throw new NotFoundException('Product not found');
     }
 
+    this.assertPublicProductPrice(product);
+
     const visibility = await this.getDefectiveCategoryVisibility();
     if (
       !visibility.show &&
@@ -433,6 +460,7 @@ export class StoreService {
       by: ['categoryId'],
       where: {
         active: true,
+        ...this.hasPublicPrice,
         ...subcategoryFilter,
         ...(!visibility.show && visibility.categoryId
           ? { categoryId: { not: visibility.categoryId } }
@@ -478,7 +506,7 @@ export class StoreService {
     }
 
     const activeCount = await this.prisma.product.count({
-      where: { categoryId: cat.id, active: true },
+      where: { categoryId: cat.id, active: true, ...this.hasPublicPrice },
     });
     return { data: mapCategory({ ...cat, _count: { products: activeCount } }), success: true };
   }
@@ -489,7 +517,7 @@ export class StoreService {
       `SELECT sc.id, sc.name, sc.name_ar, sc.category_id, COUNT(p.id) AS product_count
        FROM subcategories sc
        LEFT JOIN item_types it ON it.subcategory_id = sc.id
-       LEFT JOIN products p ON p.item_type_id = it.id AND p.active = true
+       LEFT JOIN products p ON p.item_type_id = it.id AND p.active = true AND p.price_retail > 0
        ${where}
        GROUP BY sc.id, sc.name, sc.name_ar, sc.category_id
        ORDER BY sc.name ASC`,
@@ -511,7 +539,7 @@ export class StoreService {
     const rows = await this.prisma.$queryRawUnsafe<{ id: number; name: string; name_ar: string; subcategory_id: number; product_count: bigint }[]>(
       `SELECT it.id, it.name, it.name_ar, it.subcategory_id, COUNT(p.id) AS product_count
        FROM item_types it
-       LEFT JOIN products p ON p.item_type_id = it.id AND p.active = true
+       LEFT JOIN products p ON p.item_type_id = it.id AND p.active = true AND p.price_retail > 0
        ${where}
        GROUP BY it.id, it.name, it.name_ar, it.subcategory_id
        ORDER BY it.name ASC`,
@@ -530,8 +558,8 @@ export class StoreService {
 
   async getBrands(categoryId?: number) {
     const sql = categoryId
-      ? `SELECT TRIM(brand) AS brand, COUNT(*) AS count FROM products WHERE active = true AND category_id = $1 AND brand IS NOT NULL AND brand != '' GROUP BY TRIM(brand) ORDER BY brand ASC`
-      : `SELECT TRIM(brand) AS brand, COUNT(*) AS count FROM products WHERE active = true AND brand IS NOT NULL AND brand != '' GROUP BY TRIM(brand) ORDER BY brand ASC`;
+      ? `SELECT TRIM(brand) AS brand, COUNT(*) AS count FROM products WHERE active = true AND price_retail > 0 AND category_id = $1 AND brand IS NOT NULL AND brand != '' GROUP BY TRIM(brand) ORDER BY brand ASC`
+      : `SELECT TRIM(brand) AS brand, COUNT(*) AS count FROM products WHERE active = true AND price_retail > 0 AND brand IS NOT NULL AND brand != '' GROUP BY TRIM(brand) ORDER BY brand ASC`;
     const rows = await this.prisma.$queryRawUnsafe<{ brand: string; count: bigint }[]>(
       sql, ...(categoryId ? [categoryId] : []),
     );
@@ -546,7 +574,7 @@ export class StoreService {
   async getTrustedBrands() {
     await this.ensureBrandsTable();
     const products = await this.prisma.product.findMany({
-      where: { active: true },
+      where: { active: true, ...this.hasPublicPrice },
       select: { brand: true },
     });
     const brandMap = new Map<string, { original: string; count: number }>();
@@ -607,7 +635,11 @@ export class StoreService {
     }
     // Fallback to computing from products
     const products = await this.prisma.product.findMany({
-      where: { active: true, brand: { equals: normalized, mode: 'insensitive' } },
+      where: {
+        active: true,
+        ...this.hasPublicPrice,
+        brand: { equals: normalized, mode: 'insensitive' },
+      },
       select: { brand: true },
     });
     if (products.length === 0) {

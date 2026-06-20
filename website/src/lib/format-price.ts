@@ -21,3 +21,15 @@ export function discountPercent(retail: number, sale: number): number {
   if (!retail || retail <= 0 || sale >= retail) return 0;
   return Math.round((1 - sale / retail) * 100);
 }
+
+/** True when the product has a positive sellable price for the public store. */
+export function hasPublicPrice(product: {
+  priceRetail?: number | null;
+  discountPrice?: number | null;
+}): boolean {
+  const retail = Number(product.priceRetail ?? 0);
+  const discount =
+    product.discountPrice != null ? Number(product.discountPrice) : null;
+  const effective = discount != null && discount > 0 ? discount : retail;
+  return Number.isFinite(effective) && effective > 0;
+}

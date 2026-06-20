@@ -628,6 +628,34 @@ export class ProductsService {
     };
   }
 
+  async getCatalogStats() {
+    const zeroPriceWhere = {
+      NOT: {
+        OR: [{ priceRetail: { gt: 0 } }, { discountPrice: { gt: 0 } }],
+      },
+    };
+
+    const [totalProducts, activeProducts, zeroPriceTotal, zeroPriceActive] =
+      await Promise.all([
+        this.prisma.product.count(),
+        this.prisma.product.count({ where: { active: true } }),
+        this.prisma.product.count({ where: zeroPriceWhere }),
+        this.prisma.product.count({ where: { active: true, ...zeroPriceWhere } }),
+      ]);
+
+    return {
+      data: {
+        totalProducts,
+        activeProducts,
+        zeroPriceTotal,
+        zeroPriceActive,
+        zeroPriceHidden: zeroPriceActive,
+        publicProducts: activeProducts - zeroPriceActive,
+      },
+      success: true,
+    };
+  }
+
   async getCostVerification() {
     // Get all active products
     const products = await this.prisma.product.findMany({

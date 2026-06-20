@@ -4,11 +4,14 @@
 import { useLocale } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Search, Package, CheckCircle, XCircle, Tag, RefreshCw, Star, Flame, Boxes } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Plus, Edit2, Trash2, Search, Package, CheckCircle, XCircle, Tag, RefreshCw, Star, Flame, Boxes, AlertTriangle } from "lucide-react";
 import { adminApi } from "@/lib/admin-api";
 
 export default function AdminProductsPage() {
   const locale = useLocale();
+  const searchParams = useSearchParams();
+  const zeroPriceOnly = searchParams.get("zeroPrice") === "1";
   const [products, setProducts] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -53,14 +56,20 @@ export default function AdminProductsPage() {
     }
   };
 
-  const filtered = search
-    ? products.filter(p =>
-        p.nameEn?.toLowerCase().includes(search.toLowerCase()) ||
-        p.nameAr?.includes(search) ||
-        p.code?.toLowerCase().includes(search.toLowerCase()) ||
-        p.brand?.toLowerCase().includes(search.toLowerCase())
-      )
-    : products;
+  const isZeroPrice = (p: any) => {
+    const retail = Number(p.priceRetail ?? 0);
+    const discount = p.discountPrice != null ? Number(p.discountPrice) : null;
+    const effective = discount != null && discount > 0 ? discount : retail;
+    return !Number.isFinite(effective) || effective <= 0;
+  };
+
+  const filtered = (zeroPriceOnly ? products.filter(isZeroPrice) : products).filter((p) =>
+    !search ||
+    p.nameEn?.toLowerCase().includes(search.toLowerCase()) ||
+    p.nameAr?.includes(search) ||
+    p.code?.toLowerCase().includes(search.toLowerCase()) ||
+    p.brand?.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="ap-root">
@@ -82,6 +91,20 @@ export default function AdminProductsPage() {
           </Link>
         </div>
       </div>
+
+      {zeroPriceOnly && (
+        <div className="ap-zero-price-banner">
+          <AlertTriangle className="size-4 shrink-0" />
+          <span>
+            {isRtl
+              ? "عرض المنتجات بسعر صفر فقط — مخفية من المتجر العام"
+              : "Showing zero-price products only — hidden from the public store"}
+          </span>
+          <Link href="/admin/products" className="ap-zero-price-clear">
+            {isRtl ? "عرض الكل" : "Show all"}
+          </Link>
+        </div>
+      )}
 
       {/* Search Bar */}
       <div className="ap-search-wrap">
@@ -144,13 +167,15 @@ export default function AdminProductsPage() {
             </thead>
             <tbody>
               {filtered.map((p) => (
-                <tr key={p.id} className="ap-tr">
+                <tr key={p.id} className={`ap-tr${isZeroPrice(p) ? " ap-tr-zero-price" : ""}`}>
                   <td><span className="ap-code">{p.code}</span></td>
                   <td><span className="ap-name-en">{p.nameEn}</span></td>
                   <td><span className="ap-name-ar">{p.nameAr}</span></td>
                   <td>
                     <div className="ap-price-cell">
-                      <span className="ap-price">{Number(p.priceRetail).toLocaleString()} EGP</span>
+                      <span className={`ap-price${isZeroPrice(p) ? " ap-price-zero" : ""}`}>
+                        {Number(p.priceRetail).toLocaleString()} EGP
+                      </span>
                       {p.discountPrice && (
                         <span className="ap-discount">{Number(p.discountPrice).toLocaleString()}</span>
                       )}
@@ -230,6 +255,24 @@ export default function AdminProductsPage() {
 
       <style>{`
         .ap-root { display: flex; flex-direction: column; gap: 1.5rem; }
+
+        .ap-zero-price-banner {
+          display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap;
+          padding: 0.75rem 1rem;
+          border-radius: 0.75rem;
+          border: 1px solid rgba(245,158,11,0.35);
+          background: rgba(245,158,11,0.1);
+          color: #92400e;
+          font-size: 0.85rem;
+        }
+        .ap-zero-price-clear {
+          margin-inline-start: auto;
+          font-weight: 700;
+          color: var(--primary);
+          text-decoration: none;
+        }
+        .ap-tr-zero-price { background: rgba(245,158,11,0.06); }
+        .ap-price-zero { color: #b45309; font-weight: 700; }
 
         /* Header */
         .ap-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }

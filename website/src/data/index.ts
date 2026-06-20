@@ -1,7 +1,7 @@
 import type { MockProduct, MockCategory, MockSubcategory, MockItemType, MockBrand, MockStatistic, MockDiscountCard, StockThreshold } from "./mock-data";
 import { categories as mockCategories, brands as mockBrands, statistics as mockStatistics, discountCards as mockDiscountCards } from "./mock-data";
 import { api } from "@/lib/api";
-import { normalizeRating } from "@/lib/format-price";
+import { normalizeRating, hasPublicPrice } from "@/lib/format-price";
 
 export type { MockProduct, MockCategory, MockSubcategory, MockItemType, MockBrand, MockStatistic, MockDiscountCard, StockThreshold };
 
@@ -99,7 +99,7 @@ export const store = {
   }) {
     try {
       let res = await api.getProducts(params);
-      let data = res.data.map(mapProduct);
+      let data = res.data.map(mapProduct).filter(hasPublicPrice);
       let total = res.total;
       if (params?.minRating) data = data.filter((p) => p.rating >= params.minRating!);
       if (params?.inStock) data = data.filter((p) => p.inStock);
@@ -116,7 +116,8 @@ export const store = {
   async getProduct(id: number): Promise<MockProduct | undefined> {
     try {
       const res = await api.getProduct(String(id));
-      return res.data ? mapProduct(res.data) : undefined;
+      const product = res.data ? mapProduct(res.data) : undefined;
+      return product && hasPublicPrice(product) ? product : undefined;
     } catch {
       const { getProductById } = await import("./mock-data");
       return getProductById(id);
@@ -126,7 +127,8 @@ export const store = {
   async getProductByCode(code: string): Promise<MockProduct | undefined> {
     try {
       const res = await api.getProduct(code);
-      return res.data ? mapProduct(res.data) : undefined;
+      const product = res.data ? mapProduct(res.data) : undefined;
+      return product && hasPublicPrice(product) ? product : undefined;
     } catch {
       const { products } = await import("./mock-data");
       return products.find((p) => p.code === code);
@@ -136,7 +138,7 @@ export const store = {
   async getFeaturedProducts(): Promise<MockProduct[]> {
     try {
       const data = await api.getFeaturedProducts();
-      return data.map(mapProduct);
+      return data.map(mapProduct).filter(hasPublicPrice);
     } catch {
       const { getFeaturedProducts } = await import("./mock-data");
       return getFeaturedProducts();
@@ -146,7 +148,7 @@ export const store = {
   async getBestSellingProducts(): Promise<MockProduct[]> {
     try {
       const data = await api.getBestSellingProducts();
-      return data.map(mapProduct);
+      return data.map(mapProduct).filter(hasPublicPrice);
     } catch {
       const { getBestSellingProducts } = await import("./mock-data");
       return getBestSellingProducts();
@@ -156,7 +158,7 @@ export const store = {
   async getPopularProducts(): Promise<MockProduct[]> {
     try {
       const data = await api.getFeaturedProducts();
-      return data.map(mapProduct);
+      return data.map(mapProduct).filter(hasPublicPrice);
     } catch {
       const { getPopularProducts } = await import("./mock-data");
       return getPopularProducts();
@@ -166,7 +168,7 @@ export const store = {
   async getProductsByCategory(categoryId: number): Promise<MockProduct[]> {
     try {
       const res = await api.getProducts({ categoryId, limit: 50 });
-      return res.data.map(mapProduct);
+      return res.data.map(mapProduct).filter(hasPublicPrice);
     } catch {
       const { getProductsByCategory } = await import("./mock-data");
       return getProductsByCategory(categoryId);
@@ -237,7 +239,7 @@ export const store = {
   async searchProducts(query: string): Promise<MockProduct[]> {
     try {
       const res = await api.getProducts({ search: query, limit: 50 });
-      return res.data.map(mapProduct);
+      return res.data.map(mapProduct).filter(hasPublicPrice);
     } catch {
       const { searchProducts } = await import("./mock-data");
       return searchProducts(query);

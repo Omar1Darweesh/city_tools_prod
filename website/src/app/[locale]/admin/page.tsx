@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import {
   Package, FolderTree, ShoppingCart, TrendingUp,
   Plus, ArrowUpRight, Clock, CheckCircle, XCircle,
-  Truck, Star, Flame, DollarSign,
+  Truck, Star, Flame, DollarSign, AlertTriangle,
 } from "lucide-react";
 import { adminApi } from "@/lib/admin-api";
 
@@ -31,6 +31,7 @@ export default function AdminDashboard() {
   const [bestSellerCount, setBestSellerCount] = useState(0);
   const [discountCards, setDiscountCards] = useState<any[]>([]);
   const [statCounters, setStatCounters] = useState<any[]>([]);
+  const [zeroPriceCount, setZeroPriceCount] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -61,6 +62,9 @@ export default function AdminDashboard() {
     }).catch(() => {});
     adminApi.getStatistics().then((res) => {
       setStatCounters((res.data || []).slice(0, 4));
+    }).catch(() => {});
+    adminApi.getCatalogStats().then((res) => {
+      setZeroPriceCount(res.data?.zeroPriceActive ?? 0);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
@@ -130,6 +134,25 @@ export default function AdminDashboard() {
           </Link>
         </div>
       </div>
+
+      {!loading && zeroPriceCount > 0 && (
+        <Link href="/admin/products?zeroPrice=1" className="dash-zero-price-alert">
+          <AlertTriangle className="size-5 shrink-0" />
+          <div className="dash-zero-price-body">
+            <p className="dash-zero-price-title">
+              {isRtl
+                ? `${zeroPriceCount} منتج بسعر صفر — مخفي من المتجر`
+                : `${zeroPriceCount} product${zeroPriceCount === 1 ? "" : "s"} with zero price — hidden from store`}
+            </p>
+            <p className="dash-zero-price-sub">
+              {isRtl
+                ? "هذه المنتجات لا تظهر للعملاء حتى يتم تعيين سعر أكبر من صفر."
+                : "These products are not visible to customers until a price above zero is set."}
+            </p>
+          </div>
+          <ArrowUpRight className="size-4 shrink-0" />
+        </Link>
+      )}
 
       {/* Stat Cards */}
       <div className="dash-stats-grid">
@@ -360,6 +383,24 @@ export default function AdminDashboard() {
           box-shadow: 0 4px 16px rgba(192,22,27,0.3);
         }
         .dash-primary-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .dash-zero-price-alert {
+          display: flex; align-items: flex-start; gap: 0.875rem;
+          padding: 1rem 1.15rem;
+          border-radius: 1rem;
+          border: 1px solid rgba(245,158,11,0.35);
+          background: rgba(245,158,11,0.1);
+          color: #92400e;
+          text-decoration: none;
+          transition: background 0.2s, transform 0.2s;
+        }
+        .dash-zero-price-alert:hover {
+          background: rgba(245,158,11,0.16);
+          transform: translateY(-1px);
+        }
+        .dash-zero-price-body { flex: 1; min-width: 0; }
+        .dash-zero-price-title { font-weight: 700; font-size: 0.92rem; }
+        .dash-zero-price-sub { font-size: 0.8rem; margin-top: 0.2rem; opacity: 0.85; }
 
         /* Stat Cards */
         .dash-stats-grid {
