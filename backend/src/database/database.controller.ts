@@ -6,12 +6,17 @@ import { DatabaseService } from './database.service';
 export class DatabaseController {
     constructor(private readonly databaseService: DatabaseService) { }
 
-    /** POST /database/backup — create manual backup (returns metadata only) */
+    /** POST /database/backup — create manual backup; ?download=1 streams file to browser */
     @Post('backup')
-    @HttpCode(201)
-    async createBackup() {
+    async createBackup(@Query('download') download: string | undefined, @Res() res: Response) {
         const result = await this.databaseService.createBackup(true);
-        return { success: true, ...result };
+        const { path, filename, type, date, size } = result;
+
+        if (download === 'true' || download === '1') {
+            return res.download(path, filename);
+        }
+
+        return res.status(HttpStatus.CREATED).json({ success: true, filename, type, date, size });
     }
 
     /** GET /database/backups — list all backup files */

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
+import { createAndDownloadBackup } from '../utils/backup';
 import { Plus, Edit, Trash, Shield, Check, Database } from 'lucide-react';
 
 const PERMISSION_LABELS: Record<string, { labelAr: string; descAr: string }> = {
@@ -82,20 +83,22 @@ export default function Roles() {
         }
     };
 
+    const [backingUp, setBackingUp] = useState(false);
+
     const handleBackup = async () => {
         try {
-            const confirmed = confirm('هل تريد إنشاء نسخة احتياطية من قاعدة البيانات؟');
+            const confirmed = confirm('هل تريد إنشاء وتحميل نسخة احتياطية من قاعدة البيانات؟');
             if (!confirmed) return;
 
-            // Show loading state
-            alert('جاري إنشاء النسخة الاحتياطية...');
-
-            const { data } = await apiClient.post('/database/backup');
-
-            alert(`✅ تم إنشاء النسخة الاحتياطية بنجاح!\n\nاسم الملف: ${data.filename}\nالحجم: ${(data.size / 1024 / 1024).toFixed(2)} MB`);
+            setBackingUp(true);
+            const filename = await createAndDownloadBackup();
+            alert(`✅ تم تحميل النسخة الاحتياطية بنجاح!\n\nاسم الملف: ${filename}`);
         } catch (e: any) {
-            alert(e.response?.data?.message || 'فشل في إنشاء النسخة الاحتياطية');
+            const message = e.response?.data?.message || e.message || 'فشل في إنشاء النسخة الاحتياطية';
+            alert(message);
             console.error(e);
+        } finally {
+            setBackingUp(false);
         }
     };
 
@@ -184,13 +187,14 @@ export default function Roles() {
                     {/* Backup Button */}
                     <button
                         onClick={handleBackup}
+                        disabled={backingUp}
                         style={{
-                            background: '#10b981',
+                            background: backingUp ? '#6ee7b7' : '#10b981',
                             color: 'white',
                             border: 'none',
                             padding: '12px 24px',
                             borderRadius: '8px',
-                            cursor: 'pointer',
+                            cursor: backingUp ? 'not-allowed' : 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px',
@@ -199,11 +203,11 @@ export default function Roles() {
                             boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
                             transition: 'all 0.2s'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseEnter={(e) => { if (!backingUp) e.currentTarget.style.transform = 'translateY(-2px)'; }}
                         onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     >
                         <Database size={20} />
-                        نسخة احتياطية
+                        {backingUp ? 'جارٍ التحميل...' : 'نسخة احتياطية'}
                     </button>
 
                     {/* New Role Button */}

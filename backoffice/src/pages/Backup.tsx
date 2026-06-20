@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api/client';
+import { createAndDownloadBackup, downloadBackupFile } from '../utils/backup';
 import {
     Database, Download, Trash2, RefreshCw, CheckCircle,
     AlertCircle, Loader2, HardDrive, Clock, Shield, Zap
@@ -52,11 +53,11 @@ export default function Backup() {
     const handleCreate = async () => {
         setCreating(true);
         try {
-            await apiClient.post('/database/backup');
-            showToast('success', 'تم إنشاء النسخة الاحتياطية بنجاح');
+            const filename = await createAndDownloadBackup();
+            showToast('success', `تم تحميل النسخة الاحتياطية: ${filename}`);
             fetchBackups();
         } catch {
-            showToast('error', 'فشل إنشاء النسخة الاحتياطية');
+            showToast('error', 'فشل إنشاء أو تحميل النسخة الاحتياطية');
         } finally {
             setCreating(false);
         }
@@ -65,18 +66,7 @@ export default function Backup() {
     const handleDownload = async (filename: string) => {
         setDownloadingFile(filename);
         try {
-            const response = await apiClient.get('/database/backup/download', {
-                params: { filename },
-                responseType: 'blob',
-            });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
+            await downloadBackupFile(filename);
         } catch {
             showToast('error', 'فشل تحميل النسخة الاحتياطية');
         } finally {
