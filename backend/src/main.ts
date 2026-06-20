@@ -30,9 +30,30 @@ async function bootstrap() {
       },
     );
 
-    // Enable CORS for all local network IPs
+    // CORS — whitelist known frontends (never reflect arbitrary origins with credentials)
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'https://city-tools.lamarpos.cloud',
+      'https://citytools.lamarpos.cloud',
+      'https://citytools.org',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:3000',
+      'http://localhost:3012',
+    ].filter(Boolean) as string[];
+
     app.enableCors({
-      origin: true,
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        if (process.env.NODE_ENV !== 'production') {
+          callback(null, true);
+          return;
+        }
+        callback(new Error(`CORS blocked: ${origin}`));
+      },
       credentials: true,
     });
 

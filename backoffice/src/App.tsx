@@ -12,7 +12,7 @@ import Users from './pages/Users';
 import Reports from './pages/Reports';
 import Customers from './pages/Customers';
 import StockAdjustments from './pages/StockAdjustments';
-//import Transfers from './pages/Transfers';
+import Transfers from './pages/Transfers';
 import Returns from './pages/Returns';
 import PlatformSettings from './pages/PlatformSettings';
 
@@ -55,7 +55,7 @@ export default function App() {
           <Route path="stock" element={<Stock />} />
           <Route path="stock-adjustments" element={<StockAdjustments />} />
           <Route path="stock-adjustment" element={<StockAdjustments />} />
-          {/* <Route path="transfers" element={<Transfers />} /> */}
+          <Route path="transfers" element={<Transfers />} />
           <Route path="returns" element={<Returns />} />
           <Route path="/platform-settings" element={<ProtectedRoute><PlatformSettings /></ProtectedRoute>} />
           <Route path="settings" element={<PlatformSettings />} />

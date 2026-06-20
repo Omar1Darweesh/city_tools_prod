@@ -6,10 +6,52 @@ import { LoginDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly loginAttempts = new Map<
+    string,
+    { count: number; resetAt: number }
+  >();
+
+  private readonly maxLoginAttempts = 10;
+  private readonly loginWindowMs = 15 * 60 * 1000;
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
   ) {}
+
+  private assertLoginAllowed(username: string) {
+    const key = username.toLowerCase().trim();
+    const now = Date.now();
+    const entry = this.loginAttempts.get(key);
+    if (!entry || now > entry.resetAt) {
+      return;
+    }
+    if (entry.count >= this.maxLoginAttempts) {
+      const waitMin = Math.ceil((entry.resetAt - now) / 60000);
+      throw new UnauthorizedException(
+        `Too many login attempts. Try again in ${waitMin} minute(s).`,
+      );
+    }
+  }
+
+  private recordFailedLogin(username: string) {
+    const key = username.toLowerCase().trim();
+    const now = Date.now();
+    const entry = this.loginAttempts.get(key);
+    if (!entry || now > entry.resetAt) {
+      this.loginAttempts.set(key, {
+        count: 1,
+        resetAt: now + this.loginWindowMs,
+      });
+      return;
+    }
+    entry.count += 1;
+    this.loginAttempts.set(key, entry);
+  }
+
+  private clearLoginAttempts(username: string) {
+    this.loginAttempts.delete(username.toLowerCase().trim());
+  }
 
   async validateUser(username: string, password: string): Promise<any> {
     const user = await this.prisma.user.findUnique({
@@ -46,11 +88,16 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
+    this.assertLoginAllowed(loginDto.username);
+
     const user = await this.validateUser(loginDto.username, loginDto.password);
 
     if (!user) {
+      this.recordFailedLogin(loginDto.username);
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    this.clearLoginAttempts(loginDto.username);
 
     const payload = {
       sub: user.id,
@@ -71,6 +118,7 @@ export class AuthService {
         id: user.id,
         username: user.username,
         fullName: user.fullName,
+        branchId: user.branchId,
         branch: user.branch,
         roles,
         permissions,
@@ -180,6 +228,7 @@ export class AuthService {
       id: user.id,
       username: user.username,
       fullName: user.fullName,
+      branchId: user.branchId,
       branch: user.branch,
       roles,
       permissions,

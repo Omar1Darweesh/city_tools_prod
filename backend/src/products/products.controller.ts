@@ -32,7 +32,7 @@ import { HierarchyPriceUpdateDto } from './dto/price-management.dto';
 import { ProfitMarginService } from './profit-margin.service';
 
 @Controller('products')
-//@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,

@@ -169,12 +169,18 @@ export class SalesService {
 
     // Create sale in transaction
     return this.prisma.$transaction(async (tx) => {
+      const orderStatus =
+        channel === 'ONLINE_STORE' && !delivered
+          ? OrderStatus.PENDING
+          : OrderStatus.DELIVERED;
+
       // Create sales invoice
       const invoice = await tx.salesInvoice.create({
         data: {
           invoiceNo,
           branchId,
           customerId,
+          status: orderStatus,
           subtotal: new Prisma.Decimal(rawSubtotal),
           total: new Prisma.Decimal(total),
           totalTax: new Prisma.Decimal(totalTax),
