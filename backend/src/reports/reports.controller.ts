@@ -60,9 +60,15 @@ export class ReportsController {
   }
 
   @Get('dashboard-summary')
-  getDashboardSummary(@Query('branchId') branchId?: string) {
+  getDashboardSummary(
+    @Query('branchId') branchId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
     return this.reportsService.getDashboardSummary({
       branchId: branchId ? parseInt(branchId, 10) : undefined,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
     });
   }
 

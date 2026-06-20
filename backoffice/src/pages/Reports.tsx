@@ -5,6 +5,12 @@ import {
     TrendingDown, Activity, PieChart, Wallet, Receipt, CreditCard, Banknote, Tag
 } from 'lucide-react';
 import apiClient from '../api/client';
+import {
+  getEgyptDayIsoRange,
+  getEgyptDayOfWeek,
+  getTodayInEgypt,
+  shiftEgyptDate,
+} from '../utils/egyptTime';
 
 // @ts-ignore - jspdf-autotable types
 import type jsPDF from 'jspdf';
@@ -192,43 +198,34 @@ interface PlatformSalesDetails {
     } | null;
 }
 
-// Helper to format date as YYYY-MM-DD in local time
-const formatDate = (date: Date) => {
-    const d = new Date(date);
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-    return d.toISOString().split('T')[0];
-};
-
 function getToday(): DateRange {
-    const today = formatDate(new Date());
+    const today = getTodayInEgypt();
     return { startDate: today, endDate: today, label: 'اليوم' };
 }
 
 function getYesterday(): DateRange {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const date = formatDate(yesterday);
+    const date = shiftEgyptDate(getTodayInEgypt(), -1);
     return { startDate: date, endDate: date, label: 'أمس' };
 }
 
 function getThisWeek(): DateRange {
-    const today = new Date();
-    const firstDay = new Date(today);
-    firstDay.setDate(today.getDate() - today.getDay());
+    const todayStr = getTodayInEgypt();
+    const dayOfWeek = getEgyptDayOfWeek();
+    const startDate = shiftEgyptDate(todayStr, -dayOfWeek);
     return {
-        startDate: formatDate(firstDay),
-        endDate: formatDate(new Date()),
-        label: 'هذا الأسبوع'
+        startDate,
+        endDate: todayStr,
+        label: 'هذا الأسبوع',
     };
 }
 
 function getThisMonth(): DateRange {
-    const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const todayStr = getTodayInEgypt();
+    const [year, month] = todayStr.split('-');
     return {
-        startDate: formatDate(firstDay),
-        endDate: formatDate(today),
-        label: 'هذا الشهر'
+        startDate: `${year}-${month}-01`,
+        endDate: todayStr,
+        label: 'هذا الشهر',
     };
 }
 
@@ -269,28 +266,15 @@ export default function Reports() {
         setLoading(true);
         try {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
-            const branchId = user.branchId || 1;
+            const branchId = user.branchId || user.branch?.id || 1;
 
-            // Convert YYYY-MM-DD to local start/end ISO strings to ensure timezone accuracy
-            const getLocalISO = (dateStr: string, isEnd = false) => {
-                const parts = dateStr.split('-').map(Number);
-                const date = new Date(parts[0], parts[1] - 1, parts[2]);
-                if (isEnd) {
-                    date.setHours(23, 59, 59, 999);
-                } else {
-                    date.setHours(0, 0, 0, 0);
-                }
-                // We need the absolute instant that corresponds to this local time
-                // toISOString() uses UTC. 
-                // Example: Local 00:00 (+02) -> UTC 22:00 (prev day)
-                // This is EXACTLY what the backend needs to filter correctly against stored UTC timestamps
-                return date.toISOString();
-            };
+            const { startDate } = getEgyptDayIsoRange(dateRange.startDate);
+            const endRange = getEgyptDayIsoRange(dateRange.endDate);
 
             const response = await apiClient.get('/reports/enhanced', {
                 params: {
-                    startDate: getLocalISO(dateRange.startDate),
-                    endDate: getLocalISO(dateRange.endDate, true),
+                    startDate,
+                    endDate: endRange.endDate,
                     branchId
                 }
             });
@@ -338,23 +322,15 @@ export default function Reports() {
         setLoadingPlatformSales(true);
         try {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
-            const branchId = user.branchId || 1;
+            const branchId = user.branchId || user.branch?.id || 1;
 
-            const getLocalISO = (dateStr: string, isEnd = false) => {
-                const parts = dateStr.split('-').map(Number);
-                const date = new Date(parts[0], parts[1] - 1, parts[2]);
-                if (isEnd) {
-                    date.setHours(23, 59, 59, 999);
-                } else {
-                    date.setHours(0, 0, 0, 0);
-                }
-                return date.toISOString();
-            };
+            const { startDate } = getEgyptDayIsoRange(dateRange.startDate);
+            const { endDate } = getEgyptDayIsoRange(dateRange.endDate);
 
             const response = await apiClient.get('/reports/platform-sales', {
                 params: {
-                    startDate: getLocalISO(dateRange.startDate),
-                    endDate: getLocalISO(dateRange.endDate, true),
+                    startDate,
+                    endDate,
                     branchId,
                     includeComparison: 'true'
                 }

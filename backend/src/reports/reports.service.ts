@@ -1,39 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import {
+  formatEgyptDateKey,
+  getEgyptDayBounds,
+  getEgyptDayBoundsWithOffset,
+  getEgyptHourLabel,
+} from '../common/egypt-time.util';
 
 @Injectable()
 export class ReportsService {
   constructor(private prisma: PrismaService) { }
 
   /**
-   * ✅ Date Helper: Normalize end date to include full day (23:59:59.999)
-   * This ensures consistent date range queries across all reports
-   */
-  private normalizeEndDate(date: Date): Date {
-    const normalized = new Date(date);
-    normalized.setHours(23, 59, 59, 999);
-    return normalized;
-  }
-
-  /**
-   * ✅ Date Helper: Normalize start date to beginning of day (00:00:00.000)
-   * Ensures consistent start of day across all reports
-   */
-  private normalizeStartDate(date: Date): Date {
-    const normalized = new Date(date);
-    normalized.setHours(0, 0, 0, 0);
-    return normalized;
-  }
-
-  /**
-   * ✅ Date Helper: Build date where clause with proper normalization
+   * Build date filter using UTC instants as sent by the client (Egypt day bounds).
    */
   private buildDateWhere(startDate?: Date, endDate?: Date): any {
     if (!startDate && !endDate) return {};
 
     const dateWhere: any = {};
-    if (startDate) dateWhere.gte = this.normalizeStartDate(startDate);
-    if (endDate) dateWhere.lte = this.normalizeEndDate(endDate);
+    if (startDate) dateWhere.gte = startDate;
+    if (endDate) dateWhere.lte = endDate;
 
     return { createdAt: dateWhere };
   }
@@ -730,9 +716,7 @@ export class ReportsService {
       where.salesInvoice = { ...where.salesInvoice, createdAt: {} };
       if (startDate) where.salesInvoice.createdAt.gte = startDate;
       if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        where.salesInvoice.createdAt.lte = endOfDay;
+        where.salesInvoice.createdAt.lte = endDate;
       }
     }
 
@@ -789,9 +773,7 @@ export class ReportsService {
       where.createdAt = {};
       if (startDate) where.createdAt.gte = startDate;
       if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        where.createdAt.lte = endOfDay;
+        where.createdAt.lte = endDate;
       }
     }
 
@@ -813,12 +795,7 @@ export class ReportsService {
 
     for (const sale of sales) {
       const d = new Date(sale.createdAt);
-      // We want LOCAL hour usually, but server time is stored.
-      // Assuming reports are viewed in same timezone context or server time is consistent.
-      // Adjusting to local time of the request if we knew offset, but standard practice:
-      // Group by hour of the timestamp (UTC if stored as such).
-      // FIXME: Ideally shift to requested timezone. For now, using server local hour.
-      const h = d.getHours().toString().padStart(2, '0') + ':00';
+      const h = getEgyptHourLabel(d);
 
       const current = hourlyMap.get(h) || { hour: h, total: 0, count: 0 };
       current.total += Number(sale.total);
@@ -842,9 +819,7 @@ export class ReportsService {
       where.createdAt = {};
       if (startDate) where.createdAt.gte = startDate;
       if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        where.createdAt.lte = endOfDay;
+        where.createdAt.lte = endDate;
       }
     }
 
@@ -892,9 +867,7 @@ export class ReportsService {
       where.createdAt = {};
       if (startDate) where.createdAt.gte = startDate;
       if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        where.createdAt.lte = endOfDay;
+        where.createdAt.lte = endDate;
       }
     }
 
@@ -912,27 +885,34 @@ export class ReportsService {
     }));
   }
 
-  async getDashboardSummary(params?: { branchId?: number }) {
+  async getDashboardSummary(params?: {
+    branchId?: number;
+    startDate?: Date;
+    endDate?: Date;
+  }) {
     try {
-      const { branchId } = params || {};
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
+      const { branchId, startDate, endDate } = params || {};
+      const { start: today, end: todayEnd } =
+        startDate && endDate
+          ? { start: startDate, end: endDate }
+          : getEgyptDayBounds();
+      const { start: yesterday, end: yesterdayEnd } =
+        getEgyptDayBoundsWithOffset(new Date(), -1);
 
       const where = branchId ? { branchId } : {};
-      const whereToday = { ...where, createdAt: { gte: today, lt: tomorrow } };
+      const whereToday = {
+        ...where,
+        createdAt: { gte: today, lte: todayEnd },
+      };
       const whereYesterday = {
         ...where,
-        createdAt: { gte: yesterday, lt: today },
+        createdAt: { gte: yesterday, lte: yesterdayEnd },
       };
 
       const [
+        todaySummary,
+        yesterdaySummary,
         todaySales,
-        yesterdaySales,
-        todayInvoices,
         topProductsToday,
         lowStockProducts,
         recentSales,
@@ -941,25 +921,21 @@ export class ReportsService {
         totalProducts,
         totalCustomers,
       ] = await Promise.all([
-        this.prisma.salesInvoice.aggregate({
-          where: whereToday,
-          _sum: { total: true, totalRefunded: true, netRevenue: true, costOfGoods: true },
-          _count: true,
+        this.getSalesSummary({ branchId, startDate: today, endDate: todayEnd }),
+        this.getSalesSummary({
+          branchId,
+          startDate: yesterday,
+          endDate: yesterdayEnd,
         }),
         this.prisma.salesInvoice.aggregate({
-          where: whereYesterday,
-          _sum: { total: true, totalRefunded: true, netRevenue: true },
-          _count: true,
-        }),
-        this.prisma.salesInvoice.findMany({
           where: whereToday,
-          select: { costOfGoods: true },
+          _sum: { costOfGoods: true },
         }),
         this.getTopProducts({
           limit: 10,
           branchId,
           startDate: today,
-          endDate: tomorrow,
+          endDate: todayEnd,
         }),
         this.getLowStockProducts({ threshold: 10, branchId }),
         this.prisma.salesInvoice.findMany({
@@ -986,26 +962,17 @@ export class ReportsService {
         this.prisma.customer.count(),
       ]);
 
-      // ✅ FIX: Use historical costOfGoods from invoices instead of current product.costAvg
       const todayCost = Number(todaySales._sum.costOfGoods || 0);
-
-      const todayGrossRevenue = Number(todaySales._sum.total || 0);
-      const todayReturnsVal = Number(todaySales._sum.totalRefunded || 0);
-      const todayRevenue = Number(
-        todaySales._sum.netRevenue || todayGrossRevenue - todayReturnsVal,
-      );
+      const todayGrossRevenue = todaySummary.totalSales;
+      const todayReturnsVal = todaySummary.totalReturns;
+      const todayRevenue = todaySummary.netSales;
       const todayProfit = todayRevenue - todayCost;
-      const todayOrders = todaySales._count;
-      const avgOrderValue = todayOrders > 0 ? todayRevenue / todayOrders : 0;
+      const todayOrders = todaySummary.salesCount;
+      const avgOrderValue =
+        todayOrders > 0 ? todayGrossRevenue / todayOrders : 0;
 
-      const yesterdayGrossRevenue = Number(yesterdaySales._sum.total || 0);
-      const yesterdayReturnsVal = Number(
-        yesterdaySales._sum.totalRefunded || 0,
-      );
-      const yesterdayRevenue = Number(
-        yesterdaySales._sum.netRevenue ||
-        yesterdayGrossRevenue - yesterdayReturnsVal,
-      );
+      const yesterdayRevenue = yesterdaySummary.netSales;
+      const yesterdayReturnsVal = yesterdaySummary.totalReturns;
 
       const allProducts = await this.prisma.product.findMany({
         where: { active: true },
@@ -1034,7 +1001,7 @@ export class ReportsService {
         },
         yesterday: {
           sales: yesterdayRevenue,
-          orders: yesterdaySales._count,
+          orders: yesterdaySummary.salesCount,
           returns: yesterdayReturnsVal,
         },
         inventory: {
@@ -1086,9 +1053,7 @@ export class ReportsService {
       invoiceWhere.createdAt = {};
       if (startDate) invoiceWhere.createdAt.gte = startDate;
       if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        invoiceWhere.createdAt.lte = endOfDay;
+        invoiceWhere.createdAt.lte = endDate;
       }
     }
 
@@ -1174,9 +1139,7 @@ export class ReportsService {
       where.createdAt = {};
       if (startDate) where.createdAt.gte = startDate;
       if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        where.createdAt.lte = endOfDay;
+        where.createdAt.lte = endDate;
       }
     }
 
@@ -1197,9 +1160,7 @@ export class ReportsService {
       };
       if (startDate) returnLineWhere.salesReturn.createdAt.gte = startDate;
       if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        returnLineWhere.salesReturn.createdAt.lte = endOfDay;
+        returnLineWhere.salesReturn.createdAt.lte = endDate;
       }
     }
 
@@ -1298,7 +1259,7 @@ export class ReportsService {
     >();
 
     for (const inv of invoices) {
-      const dateKey = inv.createdAt.toISOString().split('T')[0];
+      const dateKey = formatEgyptDateKey(inv.createdAt);
       const current = dailyMap.get(dateKey) || {
         total: 0,
         count: 0,
@@ -1319,7 +1280,7 @@ export class ReportsService {
     }> = [];
     const currentDate = new Date(start);
     while (currentDate <= end) {
-      const dateKey = currentDate.toISOString().split('T')[0];
+      const dateKey = formatEgyptDateKey(currentDate);
       const data = dailyMap.get(dateKey) || { total: 0, count: 0, profit: 0 };
       result.push({
         date: dateKey,
@@ -1352,9 +1313,7 @@ export class ReportsService {
       };
       if (startDate) lineWhere.salesInvoice.createdAt.gte = startDate;
       if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        lineWhere.salesInvoice.createdAt.lte = endOfDay;
+        lineWhere.salesInvoice.createdAt.lte = endDate;
       }
     }
 

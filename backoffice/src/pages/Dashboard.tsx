@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
 import {
+    EGYPT_TIMEZONE,
+    formatInEgypt,
+    getEgyptDayIsoRange,
+    getTodayInEgypt,
+} from '../utils/egyptTime';
+import {
     DollarSign, Package, ShoppingCart, TrendingUp, ArrowUpRight, ArrowDownRight,
     Clock, AlertTriangle, Plus, Truck, BarChart3, Users, ShoppingBag,
     Activity, TrendingDown, Target, Wallet, Receipt, CreditCard
@@ -65,10 +71,14 @@ export default function Dashboard() {
         setLoading(true);
         try {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
-            const branchId = user.branchId || 1;
+            const branchId = user.branchId || user.branch?.id || 1;
+            const today = getTodayInEgypt();
+            const { startDate, endDate } = getEgyptDayIsoRange(today);
 
             const [dashRes, expRes, supRes] = await Promise.allSettled([
-                apiClient.get('/reports/dashboard-summary', { params: { branchId } }),
+                apiClient.get('/reports/dashboard-summary', {
+                    params: { branchId, startDate, endDate },
+                }),
                 apiClient.get('/expenses/stats'),
                 apiClient.get('/purchasing/suppliers/stats'),
             ]);
@@ -86,34 +96,44 @@ export default function Dashboard() {
     };
 
     const getGreeting = () => {
-        const hour = currentTime.getHours();
+        const hour = Number(
+            new Intl.DateTimeFormat('en-GB', {
+                timeZone: EGYPT_TIMEZONE,
+                hour: 'numeric',
+                hour12: false,
+            }).format(currentTime),
+        );
         if (hour < 12) return 'صباح الخير';
         if (hour < 18) return 'مساء الخير';
         return 'مساء الخير';
     };
 
     const getTimeOfDay = () => {
-        const hour = currentTime.getHours();
+        const hour = Number(
+            new Intl.DateTimeFormat('en-GB', {
+                timeZone: EGYPT_TIMEZONE,
+                hour: 'numeric',
+                hour12: false,
+            }).format(currentTime),
+        );
         if (hour < 12) return '☀️';
         if (hour < 18) return '🌤️';
         return '🌙';
     };
 
-    const formatDate = () => {
-        return currentTime.toLocaleDateString('ar-SA', {
+    const formatDate = () =>
+        formatInEgypt(currentTime, {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
-            day: 'numeric'
+            day: 'numeric',
         });
-    };
 
-    const formatTime = () => {
-        return currentTime.toLocaleTimeString('ar-SA', {
+    const formatTime = () =>
+        formatInEgypt(currentTime, {
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
         });
-    };
 
     const calculateChange = (current: number, previous: number) => {
         if (previous === 0) return 0;
