@@ -85,8 +85,8 @@ export class StoreController {
   }
 
   @Get('categories')
-  async getCategories() {
-    return this.storeService.getCategories();
+  async getCategories(@Query('subcategoryName') subcategoryName?: string) {
+    return this.storeService.getCategories(subcategoryName?.trim() || undefined);
   }
 
   @Get('categories/:slug')

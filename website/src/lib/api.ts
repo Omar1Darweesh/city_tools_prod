@@ -121,8 +121,9 @@ class ApiClient {
   }
 
   // Categories
-  async getCategories(): Promise<Category[]> {
-    const data = await this.fetch<ApiResponse<Category[]>>("/store/categories");
+  async getCategories(subcategoryName?: string): Promise<Category[]> {
+    const qs = subcategoryName ? `?subcategoryName=${encodeURIComponent(subcategoryName)}` : "";
+    const data = await this.fetch<ApiResponse<Category[]>>(`/store/categories${qs}`);
     return data.data;
   }
 

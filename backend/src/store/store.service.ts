@@ -403,7 +403,7 @@ export class StoreService {
     return { data: mapProduct(withStock[0], showR), success: true };
   }
 
-  async getCategories() {
+  async getCategories(subcategoryName?: string) {
     const visibility = await this.getDefectiveCategoryVisibility();
     const cats = await this.prisma.category.findMany({
       where: { active: true },
@@ -411,10 +411,23 @@ export class StoreService {
     const visibleCats = !visibility.show && visibility.categoryId
       ? cats.filter((c) => c.id !== visibility.categoryId)
       : cats;
+    const subcategoryFilter = subcategoryName
+      ? {
+          itemType: {
+            subcategory: {
+              OR: [
+                { nameAr: { equals: subcategoryName, mode: 'insensitive' as const } },
+                { name: { equals: subcategoryName, mode: 'insensitive' as const } },
+              ],
+            },
+          },
+        }
+      : {};
     const activeCounts = await this.prisma.product.groupBy({
       by: ['categoryId'],
       where: {
         active: true,
+        ...subcategoryFilter,
         ...(!visibility.show && visibility.categoryId
           ? { categoryId: { not: visibility.categoryId } }
           : {}),

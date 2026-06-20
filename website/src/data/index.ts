@@ -172,14 +172,16 @@ export const store = {
     }
   },
 
-  async getCategories(): Promise<MockCategory[]> {
-    if (categoriesCache && Date.now() - categoriesCache.at < CACHE_TTL_MS) {
+  async getCategories(subcategoryName?: string): Promise<MockCategory[]> {
+    if (!subcategoryName && categoriesCache && Date.now() - categoriesCache.at < CACHE_TTL_MS) {
       return categoriesCache.data;
     }
     try {
-      const res = await api.getCategories();
+      const res = await api.getCategories(subcategoryName);
       const data = res.map(mapCategory);
-      categoriesCache = { data, at: Date.now() };
+      if (!subcategoryName) {
+        categoriesCache = { data, at: Date.now() };
+      }
       return data;
     } catch {
       return mockCategories;

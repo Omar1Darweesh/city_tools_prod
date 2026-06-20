@@ -58,6 +58,25 @@ function ProductsContent() {
 
   const toggleSection = (key: string) => setCollapsedSections(prev => ({ ...prev, [key]: !prev[key] }));
 
+  const buildProductsUrl = (overrides?: {
+    categoryId?: number | undefined;
+    subcategoryName?: string;
+    brand?: string;
+    search?: string;
+  }) => {
+    const params = new URLSearchParams();
+    const name = overrides?.subcategoryName ?? filterSubcategoryName;
+    const catId = overrides?.categoryId !== undefined ? overrides.categoryId : selectedCategory;
+    const brand = overrides?.brand !== undefined ? overrides.brand : filterBrand;
+    const q = overrides?.search !== undefined ? overrides.search : query;
+    if (name) params.set("subcategoryName", name);
+    if (catId) params.set("categoryId", String(catId));
+    if (brand) params.set("brand", brand);
+    if (q) params.set("search", q);
+    const qs = params.toString();
+    return qs ? `/products?${qs}` : "/products";
+  };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     router.push(`/products?search=${encodeURIComponent(searchInput)}`);
@@ -67,9 +86,11 @@ function ProductsContent() {
     setSelectedCategory(catId);
     setFilterSubcategory(undefined);
     setFilterSubcategoryIds([]);
-    setFilterSubcategoryName("");
     setFilterItemType(undefined);
     setShowFilters(false);
+    if (filterSubcategoryName) {
+      router.replace(buildProductsUrl({ categoryId: catId, subcategoryName: filterSubcategoryName }));
+    }
   };
 
   const handleSubcategoryChange = (subId: number | undefined) => {
@@ -88,7 +109,7 @@ function ProductsContent() {
   const [itemTypes, setItemTypes] = useState<MockItemType[]>([]);
   const PAGE_SIZE = 24;
 
-  useEffect(() => { store.getCategories().then(setCats); }, []);
+  useEffect(() => { store.getCategories(filterSubcategoryName || undefined).then(setCats); }, [filterSubcategoryName]);
   useEffect(() => {
     (selectedCategory ? store.getSubcategories(selectedCategory) : store.getSubcategories()).then(setSubcats);
   }, [selectedCategory]);
@@ -178,12 +199,22 @@ function ProductsContent() {
     });
   }, [...filterDeps, page]);
 
+  const visibleCats = filterSubcategoryName
+    ? cats.filter((c) => (c.productCount ?? 0) > 0)
+    : cats;
+
+  const pageTitle = filterSubcategoryName
+    ? filterSubcategoryName
+    : query
+      ? t("searchResults", { query })
+      : t("title");
+
   return (
     <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4">
       {/* Header */}
       <div className="mb-4">
         <h1 className="text-xl font-bold">
-          {query ? t("searchResults", { query }) : t("title")}
+          {pageTitle}
         </h1>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {total} {locale === "ar" ? "منتج" : "products"}
@@ -330,14 +361,45 @@ function ProductsContent() {
         </div>
       </div>
 
+      {/* Brand chips when filtered by فئة (like category page subcategory chips) */}
+      {filterSubcategoryName && visibleCats.length > 0 && (
+        <div className="mb-3 mobile-scroll-x -mx-3 px-3">
+          <div className="flex flex-nowrap items-center gap-1.5 w-max min-w-full pb-1">
+            <button
+              onClick={() => handleCategoryChange(undefined)}
+              className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                !selectedCategory
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              }`}
+            >
+              {locale === "ar" ? "الكل" : "All"}
+            </button>
+            {visibleCats.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => handleCategoryChange(cat.id)}
+                className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                  selectedCategory === cat.id
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                }`}
+              >
+                {locale === "ar" ? cat.nameAr : cat.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-4">
         {/* Sidebar Filters (desktop) */}
         <aside className="hidden w-44 shrink-0 lg:block">
           <div className="sticky top-20 space-y-4">
             {[
-              { key: "categories", labelEn: "Categories", labelAr: "الأقسام", hidden: false },
-              { key: "subcategories", labelEn: "Subcategories", labelAr: "التصنيفات الفرعية", hidden: !selectedCategory },
-              { key: "types", labelEn: "Types", labelAr: "الأنواع", hidden: !filterSubcategory },
+              { key: "categories", labelEn: "Categories", labelAr: "الأقسام", hidden: !!filterSubcategoryName },
+              { key: "subcategories", labelEn: "Subcategories", labelAr: "التصنيفات الفرعية", hidden: !selectedCategory || !!filterSubcategoryName },
+              { key: "types", labelEn: "Types", labelAr: "الأنواع", hidden: !filterSubcategory || !!filterSubcategoryName },
             ].filter((s) => !s.hidden).map(({ key, labelEn, labelAr }) => {
               const collapsed = collapsedSections[key];
               return (
@@ -367,7 +429,7 @@ function ProductsContent() {
                       >
                         {locale === "ar" ? "الكل" : "All"}
                       </button>
-                      {(key === "categories" ? cats : key === "subcategories" ? subcats : itemTypes).map((item: any) => (
+                      {(key === "categories" ? visibleCats : key === "subcategories" ? subcats : itemTypes).map((item: any) => (
                         <button
                           key={item.id}
                           onClick={() => {
@@ -407,9 +469,9 @@ function ProductsContent() {
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3">
               {[
-                { key: "categories", labelEn: "Categories", labelAr: "الأقسام", hidden: false },
-                { key: "subcategories", labelEn: "Subcategories", labelAr: "التصنيفات الفرعية", hidden: !selectedCategory },
-                { key: "types", labelEn: "Types", labelAr: "الأنواع", hidden: !filterSubcategory },
+                { key: "categories", labelEn: "Categories", labelAr: "الأقسام", hidden: !!filterSubcategoryName },
+                { key: "subcategories", labelEn: "Subcategories", labelAr: "التصنيفات الفرعية", hidden: !selectedCategory || !!filterSubcategoryName },
+                { key: "types", labelEn: "Types", labelAr: "الأنواع", hidden: !filterSubcategory || !!filterSubcategoryName },
               ].filter((s) => !s.hidden).map(({ key, labelEn, labelAr }) => {
                 const collapsed = collapsedSections[key + "_mobile"];
                 return (
@@ -439,7 +501,7 @@ function ProductsContent() {
                         >
                           {locale === "ar" ? "الكل" : "All"}
                         </button>
-                        {(key === "categories" ? cats : key === "subcategories" ? subcats : itemTypes).map((item: any) => (
+                        {(key === "categories" ? visibleCats : key === "subcategories" ? subcats : itemTypes).map((item: any) => (
                           <button
                             key={item.id}
                             onClick={() => {
