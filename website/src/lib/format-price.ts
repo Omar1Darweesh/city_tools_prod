@@ -22,14 +22,30 @@ export function discountPercent(retail: number, sale: number): number {
   return Math.round((1 - sale / retail) * 100);
 }
 
+/** Treat 0 or invalid discount as no discount (DB often stores discount_price = 0). */
+export function normalizeDiscountPrice(
+  discountPrice?: number | null,
+): number | null {
+  if (discountPrice == null) return null;
+  const value = Number(discountPrice);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+export function getEffectivePrice(product: {
+  priceRetail?: number | null;
+  discountPrice?: number | null;
+}): number {
+  const retail = Number(product.priceRetail ?? 0);
+  const discount = normalizeDiscountPrice(product.discountPrice);
+  if (discount != null) return discount;
+  return Number.isFinite(retail) ? retail : 0;
+}
+
 /** True when the product has a positive sellable price for the public store. */
 export function hasPublicPrice(product: {
   priceRetail?: number | null;
   discountPrice?: number | null;
 }): boolean {
-  const retail = Number(product.priceRetail ?? 0);
-  const discount =
-    product.discountPrice != null ? Number(product.discountPrice) : null;
-  const effective = discount != null && discount > 0 ? discount : retail;
+  const effective = getEffectivePrice(product);
   return Number.isFinite(effective) && effective > 0;
 }

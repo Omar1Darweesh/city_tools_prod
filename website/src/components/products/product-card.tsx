@@ -7,15 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/components/cart/cart-context";
 import ProductImage from "@/components/products/product-image";
 import { productDetailPath } from "@/lib/product-url";
-import { discountPercent, formatPrice, normalizeRating } from "@/lib/format-price";
+import { discountPercent, formatPrice, normalizeRating, getEffectivePrice, normalizeDiscountPrice } from "@/lib/format-price";
 import { ShoppingCart, Star, Check } from "lucide-react";
 import { useState } from "react";
 
 export function ProductCard({ product, locale }: { product: MockProduct; locale: string }) {
   const isRtl = locale === "ar";
-  const price = product.discountPrice ?? product.priceRetail;
+  const discount = normalizeDiscountPrice(product.discountPrice);
+  const price = getEffectivePrice(product);
   const rating = normalizeRating(product.rating);
-  const pctOff = product.discountPrice ? discountPercent(product.priceRetail, price) : 0;
+  const pctOff = discount ? discountPercent(product.priceRetail, price) : 0;
   const gradient = "from-gray-500 to-gray-600";
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
@@ -95,7 +96,7 @@ export function ProductCard({ product, locale }: { product: MockProduct; locale:
           <div className="mt-1 min-h-[2rem]">
             <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
               <span className="text-xs font-bold text-primary">{formatPrice(price, locale)}</span>
-              {product.discountPrice ? (
+              {discount ? (
                 <span className="text-[9px] text-muted-foreground line-through">
                   {formatPrice(product.priceRetail, locale)}
                 </span>

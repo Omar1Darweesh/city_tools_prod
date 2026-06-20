@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/components/cart/cart-context";
 import ProductImage from "@/components/products/product-image";
 import { productDetailPath } from "@/lib/product-url";
-import { formatPrice, normalizeRating } from "@/lib/format-price";
+import { formatPrice, normalizeRating, getEffectivePrice } from "@/lib/format-price";
 import { ShoppingCart, Star, Check } from "lucide-react";
 import { useState } from "react";
 
 export function ProductListItem({ product, locale }: { product: MockProduct; locale: string }) {
   const isRtl = locale === "ar";
-  const price = product.discountPrice ?? product.priceRetail;
+  const price = getEffectivePrice(product);
   const rating = normalizeRating(product.rating);
   const gradient = "from-gray-500 to-gray-600";
   const { addItem } = useCart();

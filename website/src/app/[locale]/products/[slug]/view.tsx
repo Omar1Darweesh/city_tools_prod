@@ -14,7 +14,7 @@ import {
 import { useEffect, useState } from "react";
 import { useCart } from "@/components/cart/cart-context";
 import type { DisplayProduct } from "@/lib/product";
-import { store } from "@/data";
+import { getEffectivePrice, normalizeDiscountPrice } from "@/lib/format-price";
 
 export default function ProductDetailPage({ product: initialProduct }: { product: DisplayProduct }) {
   const t = useTranslations("Product");
@@ -45,7 +45,8 @@ export default function ProductDetailPage({ product: initialProduct }: { product
   const isRtl = locale === "ar";
   const images = product.images.length ? product.images : [];
   const currentImg = images[imgIndex];
-  const displayPrice = product.discountPrice ?? product.priceRetail;
+  const discount = normalizeDiscountPrice(product.discountPrice);
+  const displayPrice = getEffectivePrice(product);
   const maxQty = Math.max(0, product.stock);
   const stockLevel = product.inStock ? maxQty : 0;
   const productName = isRtl ? product.nameAr || product.nameEn : product.nameEn;
@@ -195,16 +196,16 @@ export default function ProductDetailPage({ product: initialProduct }: { product
           )}
 
           <div>
-            {product.discountPrice ? (
+            {discount ? (
               <div className="flex items-baseline gap-3 flex-wrap">
                 <span className="text-3xl font-bold text-primary">
-                  EGP {product.discountPrice.toLocaleString()}
+                  EGP {discount.toLocaleString()}
                 </span>
                 <span className="text-lg text-muted-foreground line-through">
                   EGP {product.priceRetail.toLocaleString()}
                 </span>
                 <Badge variant="destructive">
-                  {Math.round(((product.priceRetail - product.discountPrice) / product.priceRetail) * 100)}% OFF
+                  {Math.round(((product.priceRetail - discount) / product.priceRetail) * 100)}% OFF
                 </Badge>
               </div>
             ) : (

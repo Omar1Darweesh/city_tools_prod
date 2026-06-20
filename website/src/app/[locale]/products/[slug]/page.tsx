@@ -2,6 +2,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import ProductDetailView from "./view";
 import { fetchStoreProduct } from "@/lib/product";
+import { getEffectivePrice } from "@/lib/format-price";
 import { DEFAULT_OG_IMAGE, DEFAULT_OG_IMAGE_META } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -74,7 +75,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   }
 
   const name = isAr ? product.nameAr || product.nameEn : product.nameEn;
-  const displayPrice = product.discountPrice ?? product.priceRetail;
+  const displayPrice = getEffectivePrice(product);
 
   const productSchema = {
     "@context": "https://schema.org",

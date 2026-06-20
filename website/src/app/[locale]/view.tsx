@@ -10,7 +10,7 @@ import Image from "next/image";
 import { ShoppingCart, Star, Check, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, Zap, Wrench, Shield, Truck, BadgePercent, HeadphonesIcon, Package, Bolt, Droplets, Factory, Settings, Toolbox, DollarSign } from "lucide-react";
 import { useCart } from "@/components/cart/cart-context";
 import { buildLogoByName, getCategoryLogo } from "@/lib/brand-logo";
-import { formatPrice, normalizeRating } from "@/lib/format-price";
+import { formatPrice, normalizeRating, getEffectivePrice, normalizeDiscountPrice } from "@/lib/format-price";
 import { groupSubcategoriesByName, subcategoryGroupProductsHref } from "@/lib/subcategory-groups";
 import type { MockProduct, MockCategory, MockSubcategory, MockBrand, MockStatistic, MockDiscountCard } from "@/data";
 
@@ -97,12 +97,13 @@ function CircleScroller({ children }: { children: React.ReactNode }) {
 /* ─── product card ─── */
 function ProductCard({ product, locale }: { product: MockProduct; locale: string }) {
   const isRtl = locale === "ar";
-  const price = product.discountPrice ?? product.priceRetail;
+  const discount = normalizeDiscountPrice(product.discountPrice);
+  const price = getEffectivePrice(product);
   const rating = normalizeRating(product.rating);
   const { addItem } = useCart();
   const [added, setAdded] = useState(false);
   const gradient = "from-gray-500 to-gray-600";
-  const pct = product.discountPrice ? Math.round((1 - product.discountPrice / product.priceRetail) * 100) : 0;
+  const pct = discount ? Math.round((1 - discount / product.priceRetail) * 100) : 0;
 
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -131,7 +132,7 @@ function ProductCard({ product, locale }: { product: MockProduct; locale: string
             </div>
           )}
           {pct > 0 && <span className="discount-badge">-{pct}%</span>}
-          {product.badge === "NEW" && !product.discountPrice && <span className="new-badge">{locale === "ar" ? "جديد" : "NEW"}</span>}
+          {product.badge === "NEW" && !discount && <span className="new-badge">{locale === "ar" ? "جديد" : "NEW"}</span>}
         </div>
       </Link>
       <div className="flex flex-1 flex-col p-3">
@@ -155,7 +156,7 @@ function ProductCard({ product, locale }: { product: MockProduct; locale: string
           <div className="mt-2 min-h-[2.5rem]">
             <div className="flex flex-wrap items-baseline gap-1.5">
               <span className="text-base font-bold text-primary">{formatPrice(price, locale)}</span>
-              {product.discountPrice && (
+              {discount && (
                 <span className="text-xs text-muted-foreground line-through">{formatPrice(product.priceRetail, locale)}</span>
               )}
             </div>

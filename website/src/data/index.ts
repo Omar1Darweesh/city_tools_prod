@@ -1,7 +1,7 @@
 import type { MockProduct, MockCategory, MockSubcategory, MockItemType, MockBrand, MockStatistic, MockDiscountCard, StockThreshold } from "./mock-data";
 import { categories as mockCategories, brands as mockBrands, statistics as mockStatistics, discountCards as mockDiscountCards } from "./mock-data";
 import { api } from "@/lib/api";
-import { normalizeRating, hasPublicPrice } from "@/lib/format-price";
+import { normalizeRating, hasPublicPrice, normalizeDiscountPrice } from "@/lib/format-price";
 
 export type { MockProduct, MockCategory, MockSubcategory, MockItemType, MockBrand, MockStatistic, MockDiscountCard, StockThreshold };
 
@@ -20,7 +20,7 @@ function mapProduct(p: any): MockProduct { // eslint-disable-line @typescript-es
     nameAr: p.nameAr,
     priceRetail: p.priceRetail,
     priceWholesale: p.priceWholesale,
-    discountPrice: p.discountPrice ?? null,
+    discountPrice: normalizeDiscountPrice(p.discountPrice),
     categoryId: p.categoryId,
     subcategoryId: p.subcategoryId ?? undefined,
     itemTypeId: p.itemTypeId ?? undefined,
