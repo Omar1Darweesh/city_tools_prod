@@ -50,12 +50,19 @@ export class DatabaseService {
         return 'pg_dump';
     }
 
+    /** Use TCP loopback so pg_dump uses password auth (localhost → Unix socket → peer auth fails). */
+    private normalizeHost(host: string): string {
+        const h = (host || '127.0.0.1').trim();
+        if (h === 'localhost' || h === '::1') return '127.0.0.1';
+        return h;
+    }
+
     private getDbConfig(): DbConfig {
         if (process.env.DATABASE_URL) {
             const raw = process.env.DATABASE_URL.split('?')[0];
             const url = new URL(raw);
             return {
-                host: url.hostname || 'localhost',
+                host: this.normalizeHost(url.hostname),
                 port: url.port || '5432',
                 user: decodeURIComponent(url.username),
                 password: decodeURIComponent(url.password),
@@ -63,7 +70,7 @@ export class DatabaseService {
             };
         }
         return {
-            host: process.env.PGHOST || 'localhost',
+            host: this.normalizeHost(process.env.PGHOST || '127.0.0.1'),
             port: process.env.PGPORT || '5432',
             user: process.env.PGUSER || '',
             password: process.env.PGPASSWORD || '',
@@ -104,7 +111,11 @@ export class DatabaseService {
 
         try {
             await execFilePromise(pgDump, args, {
-                env: { ...process.env, PGPASSWORD: db.password },
+                env: {
+                    ...process.env,
+                    PGPASSWORD: db.password,
+                    PATH: `/usr/lib/postgresql/17/bin:/usr/lib/postgresql/16/bin:/usr/lib/postgresql/15/bin:/usr/lib/postgresql/14/bin:/usr/bin:/usr/local/bin:${process.env.PATH || ''}`,
+                },
                 maxBuffer: 50 * 1024 * 1024,
             });
 
