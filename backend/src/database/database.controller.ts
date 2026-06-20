@@ -6,6 +6,18 @@ import { DatabaseService } from './database.service';
 export class DatabaseController {
     constructor(private readonly databaseService: DatabaseService) { }
 
+    /** GET /database/backup/export — create backup and download (browser-friendly, no POST body) */
+    @Get('backup/export')
+    async exportBackup(@Res() res: Response) {
+        try {
+            const result = await this.databaseService.createBackup(true);
+            res.setHeader('Cache-Control', 'no-store');
+            return res.download(result.path, result.filename);
+        } catch (error: any) {
+            throw new HttpException(error?.message || 'Backup failed', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     /** POST /database/backup — create manual backup; ?download=1 streams file to browser */
     @Post('backup')
     async createBackup(@Query('download') download: string | undefined, @Res() res: Response) {

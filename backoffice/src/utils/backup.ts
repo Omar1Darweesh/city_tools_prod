@@ -25,13 +25,10 @@ export function downloadBlob(data: Blob, filename: string) {
 /** Create a fresh backup and trigger browser download (works on desktop & mobile). */
 export async function createAndDownloadBackup(): Promise<string> {
     const fallback = `backup_manual_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.sql`;
-    const response = await apiClient.post('/database/backup?download=1', null, {
+    const response = await apiClient.get('/database/backup/export', {
         responseType: 'blob',
+        validateStatus: (status) => status >= 200 && status < 300,
     });
-
-    if (response.status >= 400) {
-        throw new Error('Backup failed');
-    }
 
     const contentType = response.headers['content-type'] ?? '';
     if (contentType.includes('application/json')) {
@@ -43,6 +40,24 @@ export async function createAndDownloadBackup(): Promise<string> {
     const filename = parseFilename(response.headers['content-disposition'], fallback);
     downloadBlob(new Blob([response.data], { type: 'application/sql' }), filename);
     return filename;
+}
+
+export async function readApiError(error: unknown): Promise<string> {
+    const e = error as { response?: { data?: unknown }; message?: string };
+    const data = e.response?.data;
+    if (data instanceof Blob) {
+        try {
+            const text = await data.text();
+            const parsed = JSON.parse(text);
+            return parsed.message || text || 'Backup failed';
+        } catch {
+            return e.message || 'Backup failed';
+        }
+    }
+    if (data && typeof data === 'object' && 'message' in data) {
+        return String((data as { message: string }).message);
+    }
+    return e.message || 'Backup failed';
 }
 
 /** Download an existing backup file from the server. */

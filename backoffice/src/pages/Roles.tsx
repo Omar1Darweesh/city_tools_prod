@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
-import { createAndDownloadBackup } from '../utils/backup';
+import { createAndDownloadBackup, readApiError } from '../utils/backup';
 import { Plus, Edit, Trash, Shield, Check, Database } from 'lucide-react';
 
 const PERMISSION_LABELS: Record<string, { labelAr: string; descAr: string }> = {
@@ -93,8 +93,8 @@ export default function Roles() {
             setBackingUp(true);
             const filename = await createAndDownloadBackup();
             alert(`✅ تم تحميل النسخة الاحتياطية بنجاح!\n\nاسم الملف: ${filename}`);
-        } catch (e: any) {
-            const message = e.response?.data?.message || e.message || 'فشل في إنشاء النسخة الاحتياطية';
+        } catch (e: unknown) {
+            const message = await readApiError(e);
             alert(message);
             console.error(e);
         } finally {
