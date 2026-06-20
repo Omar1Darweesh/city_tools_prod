@@ -635,8 +635,11 @@ export class ReportsService {
     const grossProfit = netSales - totalCost;
     const profitMargin = netSales > 0 ? (grossProfit / netSales) * 100 : 0;
 
-    // ✅ FIXED: Don't subtract tax (already included in netSales)
-    const netProfit = grossProfit - salesSummary.totalCommission;
+    // Align with platformSales: deduct commission and tax from gross profit
+    const netProfit =
+      grossProfit -
+      salesSummary.totalCommission -
+      salesSummary.totalTax;
 
     const allProducts = await this.prisma.product.findMany({
       where: { active: true },

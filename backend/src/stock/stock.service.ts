@@ -334,4 +334,77 @@ export class StockService {
       };
     });
   }
+
+  async listTransfers(params?: {
+    skip?: number;
+    take?: number;
+    branchId?: number;
+  }) {
+    const { skip = 0, take = 50, branchId } = params || {};
+
+    const where: any = { movementType: MovementType.TRANSFER_OUT };
+    if (branchId) {
+      where.stockLocation = { branchId };
+    }
+
+    const outbound = await this.prisma.stockMovement.findMany({
+      where,
+      skip,
+      take,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        product: {
+          select: {
+            id: true,
+            nameEn: true,
+            nameAr: true,
+            code: true,
+          },
+        },
+        stockLocation: {
+          include: { branch: true },
+        },
+        user: {
+          select: { id: true, username: true, fullName: true },
+        },
+      },
+    });
+
+    const outIds = outbound.map((m) => m.id);
+    const inbound =
+      outIds.length > 0
+        ? await this.prisma.stockMovement.findMany({
+            where: {
+              movementType: MovementType.TRANSFER_IN,
+              refTable: 'stock_movements',
+              refId: { in: outIds },
+            },
+            include: {
+              stockLocation: {
+                include: { branch: true },
+              },
+            },
+          })
+        : [];
+
+    const inboundByRef = new Map(inbound.map((m) => [m.refId!, m]));
+
+    const data = outbound.map((out) => {
+      const inboundMovement = inboundByRef.get(out.id);
+      return {
+        id: out.id,
+        product: out.product,
+        qty: Math.abs(out.qtyChange),
+        fromLocation: out.stockLocation,
+        toLocation: inboundMovement?.stockLocation ?? null,
+        notes: out.notes,
+        createdBy: out.user,
+        createdAt: out.createdAt,
+      };
+    });
+
+    const total = await this.prisma.stockMovement.count({ where });
+
+    return { data, total, skip, take };
+  }
 }

@@ -72,10 +72,11 @@ export class UsersController {
       id: user.id,
       username: user.username,
       fullName: user.fullName,
+      branchId: user.branchId,
       branch: user.branch,
       roles,
       permissions,
-      pages, // ✅ ADD THIS
+      pages,
     };
   }
 }

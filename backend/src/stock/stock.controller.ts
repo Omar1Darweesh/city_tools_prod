@@ -75,6 +75,19 @@ export class StockController {
     });
   }
 
+  @Get('transfers')
+  listTransfers(
+    @Query('skip') skip?: string,
+    @Query('take') take?: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.stockService.listTransfers({
+      skip: skip ? parseInt(skip, 10) : undefined,
+      take: take ? parseInt(take, 10) : undefined,
+      branchId: branchId ? parseInt(branchId, 10) : undefined,
+    });
+  }
+
   @Get('locations')
   getLocations(@Query('branchId') branchId?: string) {
     return this.stockService.getLocations(

@@ -54,6 +54,7 @@ export class StoreController {
     @Query('search') search?: string,
     @Query('sort') sort?: string,
     @Query('isPopular') isPopular?: string,
+    @Query('popular') popular?: string,
     @Query('isBestSale') isBestSale?: string,
     @Query('discounted') discounted?: string,
     @Query('badge') badge?: string,
@@ -71,7 +72,8 @@ export class StoreController {
       itemTypeId: itemTypeId ? Number(itemTypeId) : undefined,
       search,
       sort,
-      isPopular: isPopular === 'true' ? true : undefined,
+      isPopular:
+        isPopular === 'true' || popular === 'true' ? true : undefined,
       isBestSale: isBestSale === 'true' ? true : undefined,
       discounted: discounted === 'true' ? true : undefined,
       badge,
@@ -299,6 +301,14 @@ export class StoreController {
   @Post('orders')
   async createOrder(@Body() body: CreateStoreOrderDto) {
     return this.storeService.createOrder(body);
+  }
+
+  @Get('orders/track')
+  async trackOrder(
+    @Query('invoiceNo') invoiceNo: string,
+    @Query('phone') phone?: string,
+  ) {
+    return this.storeService.trackOrder(invoiceNo, phone);
   }
 
   @Get('orders')

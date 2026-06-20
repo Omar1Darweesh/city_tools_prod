@@ -1283,6 +1283,53 @@ export class StoreService {
     return { data: { id: sale.id, invoiceNo: sale.invoiceNo }, success: true };
   }
 
+  async trackOrder(invoiceNo: string, phone?: string) {
+    if (!invoiceNo?.trim()) {
+      return { success: false, message: 'Invoice number is required' };
+    }
+
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: {
+        invoiceNo: { equals: invoiceNo.trim(), mode: 'insensitive' },
+      },
+      include: {
+        customer: true,
+        lines: { include: { product: true } },
+      },
+    });
+
+    if (!invoice) {
+      return { success: false, message: 'Order not found' };
+    }
+
+    if (phone?.trim()) {
+      const normalized = phone.replace(/\D/g, '');
+      const customerPhone = (invoice.customer?.phone || '').replace(/\D/g, '');
+      if (customerPhone && normalized && customerPhone !== normalized) {
+        return { success: false, message: 'Order not found' };
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        id: invoice.id,
+        invoiceNo: invoice.invoiceNo,
+        status: invoice.paymentStatus,
+        orderStatus: invoice.status,
+        total: Number(invoice.total),
+        createdAt: invoice.createdAt.toISOString(),
+        customerName: invoice.customer?.name || '',
+        items: invoice.lines.map((l) => ({
+          productName: l.product.nameEn,
+          productNameAr: l.product.nameAr,
+          quantity: l.qty,
+          lineTotal: Number(l.lineTotal),
+        })),
+      },
+    };
+  }
+
   async getOrders(userId: number) {
 
     const invoices = await this.prisma.salesInvoice.findMany({

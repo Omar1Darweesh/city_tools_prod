@@ -255,6 +255,9 @@ SQL
   npx prisma migrate resolve --applied 20260611120000_add_category_store_columns 2>/dev/null || true
   npx prisma migrate resolve --applied 20260613130000_add_show_defective_category 2>/dev/null || true
 
+  log "Ensure ad-hoc website tables (store_trust_features, etc.)"
+  bash "$SCRIPT_DIR/ensure-missing-tables.sh" 2>/dev/null || warn "ensure-missing-tables had warnings"
+
   log "Seed sidebar pages + assign all pages to ADMIN"
   npx ts-node prisma/seed-pages.ts || warn "seed-pages had warnings"
   node <<'EOF'
@@ -282,6 +285,12 @@ EOF
   log "Rebuild backoffice"
   cd "$APP_DIR/backoffice"
   npm run build
+
+  if [ -d "$APP_DIR/website" ]; then
+    log "Rebuild website"
+    cd "$APP_DIR/website"
+    npm run build
+  fi
 
   log "Reset admin password (admin / admin123)"
   sudo -u postgres psql -d "$TARGET_DB" -f "$SCRIPT_DIR/reset-admin-password.sql" \
