@@ -170,6 +170,7 @@ export class ProductsController {
     @Query('branchId') branchId?: string,
     @Query('stockStatus') stockStatus?: string,
     @Query('hasImage') hasImage?: string,
+    @Query('zeroPrice') zeroPrice?: string,
   ) {
     return this.productsService.findAll({
       skip: skip ? Number(skip) : undefined,
@@ -188,6 +189,7 @@ export class ProductsController {
         | 'available'
         | undefined,
       hasImage: hasImage !== undefined ? hasImage === 'true' : undefined,
+      zeroPrice: zeroPrice === 'true',
     });
   }
 

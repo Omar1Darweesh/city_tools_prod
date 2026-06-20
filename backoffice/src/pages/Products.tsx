@@ -80,6 +80,7 @@ export default function Products() {
     const [showInactive, setShowInactive] = useState(false);
     const [stockFilter, setStockFilter] = useState<string>('');
     const [hasImageFilter, setHasImageFilter] = useState<string>('');
+    const [zeroPriceFilter, setZeroPriceFilter] = useState(false);
     const [reservedItems, setReservedItems] = useState<any[]>([]);
     const [reservedLoading, setReservedLoading] = useState(false);
     const [showReserved, setShowReserved] = useState(false);
@@ -90,7 +91,7 @@ export default function Products() {
         fetchProducts();
         fetchCategories();
         fetchAllTotal();
-    }, [searchTerm, selectedCategory, selectedSubcategory, selectedItemType, page, showInactive, stockFilter, hasImageFilter]);
+    }, [searchTerm, selectedCategory, selectedSubcategory, selectedItemType, page, showInactive, stockFilter, hasImageFilter, zeroPriceFilter]);
 
     const fetchAllTotal = async () => {
         try {
@@ -120,6 +121,9 @@ export default function Products() {
             }
             if (hasImageFilter) {
                 params.hasImage = hasImageFilter === 'yes' ? 'true' : 'false';
+            }
+            if (zeroPriceFilter) {
+                params.zeroPrice = 'true';
             }
 
             const response = await apiClient.get('/products', { params });
@@ -264,7 +268,7 @@ export default function Products() {
         );
     };
 
-    const hasActiveFilters = searchTerm || selectedCategory || selectedSubcategory || selectedItemType || stockFilter || hasImageFilter;
+    const hasActiveFilters = searchTerm || selectedCategory || selectedSubcategory || selectedItemType || stockFilter || hasImageFilter || zeroPriceFilter;
 
     const exportToExcel = async () => {
         setIsExporting(true);
@@ -277,6 +281,9 @@ export default function Products() {
             if (stockFilter) params.stockStatus = stockFilter;
             if (hasImageFilter) {
                 params.hasImage = hasImageFilter === 'yes' ? 'true' : 'false';
+            }
+            if (zeroPriceFilter) {
+                params.zeroPrice = 'true';
             }
 
             const response = await apiClient.get('/products', { params });
@@ -936,6 +943,33 @@ export default function Products() {
                         </select>
                     </div>
 
+                    {/* Zero Price Filter */}
+                    <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.75rem 1rem',
+                        background: zeroPriceFilter ? '#fffbeb' : '#f9fafb',
+                        borderRadius: '8px',
+                        border: zeroPriceFilter ? '2px solid #f59e0b' : '1px solid #e5e7eb',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        userSelect: 'none',
+                    }}>
+                        <input
+                            type="checkbox"
+                            checked={zeroPriceFilter}
+                            onChange={(e) => {
+                                setZeroPriceFilter(e.target.checked);
+                                setPage(1);
+                            }}
+                            style={{ width: '18px', height: '18px', accentColor: '#f59e0b' }}
+                        />
+                        <span style={{ fontSize: '0.875rem', fontWeight: zeroPriceFilter ? 700 : 500, color: zeroPriceFilter ? '#92400e' : '#374151' }}>
+                            سعر صفر (مخفي من المتجر)
+                        </span>
+                    </label>
+
                 </div>
 
                 {/* Filter Actions Row */}
@@ -1028,6 +1062,7 @@ export default function Products() {
                                     setSelectedItemType(null);
                                     setStockFilter('');
                                     setHasImageFilter('');
+                                    setZeroPriceFilter(false);
                                     setShowInactive(false);
                                     setPage(1);
                                 }}
@@ -1334,8 +1369,16 @@ export default function Products() {
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                                <div style={{ fontWeight: '600', color: '#059669' }}>
+                                                <div style={{
+                                                    fontWeight: '600',
+                                                    color: Number(product.priceRetail) <= 0 ? '#b45309' : '#059669',
+                                                }}>
                                                     {Number(product.priceRetail).toFixed(2)} ج.م
+                                                    {Number(product.priceRetail) <= 0 && (
+                                                        <div style={{ fontSize: '0.7rem', color: '#92400e', marginTop: '0.15rem' }}>
+                                                            مخفي من المتجر
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1rem', textAlign: 'center' }}>

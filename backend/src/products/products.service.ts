@@ -460,6 +460,7 @@ export class ProductsService {
     branchId?: number;
     stockStatus?: 'empty' | 'low' | 'enough' | 'high' | 'available';
     hasImage?: boolean;
+    zeroPrice?: boolean;
   }) {
     const MAX_TAKE = 2000; // ✅ INCREASED: Support larger product catalogs
     const MAX_SKIP = 100000;
@@ -474,6 +475,7 @@ export class ProductsService {
       branchId,
       stockStatus,
       hasImage,
+      zeroPrice,
     } = params || {};
 
     // ✅ FIXED: Add max limits to prevent resource exhaustion
@@ -526,6 +528,12 @@ export class ProductsService {
       } else {
         where.images = { equals: [] };
       }
+    }
+
+    if (zeroPrice) {
+      where.NOT = {
+        OR: [{ priceRetail: { gt: 0 } }, { discountPrice: { gt: 0 } }],
+      };
     }
 
     // ✅ NEW: Server-side Stock Filtering

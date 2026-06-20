@@ -22,14 +22,16 @@ export default function AdminProductsPage() {
 
   const loadProducts = (q = "") => {
     setLoading(true);
-    const params = q ? `search=${encodeURIComponent(q)}&limit=100` : "limit=100";
-    adminApi.getProducts(params)
+    const params = new URLSearchParams({ take: "500" });
+    if (q) params.set("search", q);
+    if (zeroPriceOnly) params.set("zeroPrice", "true");
+    adminApi.getProducts(params.toString())
       .then((res) => { setProducts(res.data || []); setTotal(res.total || 0); })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadProducts(); }, []);
+  useEffect(() => { loadProducts(); }, [zeroPriceOnly]);
 
   const handleDelete = async (id: number, name: string) => {
     if (!confirm(isRtl ? `حذف "${name}"؟` : `Delete "${name}"?`)) return;
@@ -63,7 +65,7 @@ export default function AdminProductsPage() {
     return !Number.isFinite(effective) || effective <= 0;
   };
 
-  const filtered = (zeroPriceOnly ? products.filter(isZeroPrice) : products).filter((p) =>
+  const filtered = products.filter((p) =>
     !search ||
     p.nameEn?.toLowerCase().includes(search.toLowerCase()) ||
     p.nameAr?.includes(search) ||
@@ -82,6 +84,13 @@ export default function AdminProductsPage() {
           </p>
         </div>
         <div className="ap-header-actions">
+          <Link
+            href={zeroPriceOnly ? "/admin/products" : "/admin/products?zeroPrice=1"}
+            className={`ap-zero-price-toggle${zeroPriceOnly ? " active" : ""}`}
+          >
+            <AlertTriangle className="size-4" />
+            {isRtl ? "سعر صفر" : "Zero price"}
+          </Link>
           <button onClick={() => loadProducts(search)} className="ap-refresh-btn" title="Refresh">
             <RefreshCw className={`size-4 ${loading ? "ap-spinning" : ""}`} />
           </button>
@@ -270,6 +279,22 @@ export default function AdminProductsPage() {
           font-weight: 700;
           color: var(--primary);
           text-decoration: none;
+        }
+        .ap-zero-price-toggle {
+          display: inline-flex; align-items: center; gap: 0.35rem;
+          padding: 0.55rem 0.9rem;
+          border-radius: 999px;
+          border: 1px solid rgba(245,158,11,0.35);
+          background: rgba(245,158,11,0.08);
+          color: #92400e;
+          font-size: 0.82rem;
+          font-weight: 700;
+          text-decoration: none;
+          transition: all 0.2s;
+        }
+        .ap-zero-price-toggle.active,
+        .ap-zero-price-toggle:hover {
+          background: rgba(245,158,11,0.16);
         }
         .ap-tr-zero-price { background: rgba(245,158,11,0.06); }
         .ap-price-zero { color: #b45309; font-weight: 700; }
