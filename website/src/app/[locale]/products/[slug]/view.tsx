@@ -14,6 +14,7 @@ import {
 import { useEffect, useState } from "react";
 import { useCart } from "@/components/cart/cart-context";
 import type { DisplayProduct } from "@/lib/product";
+import { store } from "@/data";
 import { getEffectivePrice, normalizeDiscountPrice } from "@/lib/format-price";
 
 export default function ProductDetailPage({ product: initialProduct }: { product: DisplayProduct }) {
