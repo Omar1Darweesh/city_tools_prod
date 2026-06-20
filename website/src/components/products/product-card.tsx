@@ -32,9 +32,9 @@ export function ProductCard({ product, locale }: { product: MockProduct; locale:
   };
 
   return (
-      <div className="group relative overflow-hidden rounded-lg border bg-card transition-all duration-200 hover:shadow-sm">
-      <Link href={productDetailPath(product)} className="block">
-        <div className="aspect-[3/2] relative overflow-hidden">
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-lg border bg-card transition-all duration-200 hover:shadow-sm">
+      <Link href={productDetailPath(product)} className="block shrink-0">
+        <div className="relative aspect-[3/2] overflow-hidden">
           {product.images?.[0] ? (
             <ProductImage src={product.images[0]} alt={productName} fill className="object-cover" sizes="(max-width: 640px) 50vw, 200px" loading="lazy" />
           ) : null}
@@ -60,37 +60,45 @@ export function ProductCard({ product, locale }: { product: MockProduct; locale:
           )}
         </div>
       </Link>
-      <div className="p-2">
-        <Link href={productDetailPath(product)}>
-          <p className="text-[9px] text-muted-foreground truncate">{product.brand}</p>
-          <h3 className="font-medium line-clamp-2 text-[11px] leading-tight group-hover:text-primary transition-colors">
-            {locale === "ar" ? product.nameAr : product.nameEn}
-          </h3>
-        </Link>
-        {product.rating > 0 && (
-          <div className="flex items-center gap-px mt-0.5">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Star
-                key={i}
-                className={`size-2 ${i < Math.floor(product.rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/20"}`}
-              />
-            ))}
-            <span className="text-[8px] text-muted-foreground ms-px">{product.rating}</span>
+
+      <div className="flex flex-1 flex-col p-2">
+        <div className="flex flex-1 flex-col">
+          <Link href={productDetailPath(product)} className="block">
+            <p className="truncate text-[9px] text-muted-foreground">{product.brand || "\u00A0"}</p>
+            <h3 className="mt-0.5 min-h-[2rem] line-clamp-2 text-[11px] font-medium leading-tight transition-colors group-hover:text-primary">
+              {productName}
+            </h3>
+          </Link>
+
+          <div className="mt-0.5 flex h-3.5 items-center gap-px">
+            {product.rating > 0 ? (
+              <>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className={`size-2 ${i < Math.floor(product.rating) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/20"}`}
+                  />
+                ))}
+                <span className="ms-px text-[8px] text-muted-foreground">{product.rating}</span>
+              </>
+            ) : null}
           </div>
-        )}
-        <div className="mt-1 flex items-baseline gap-1">
-          {product.discountPrice ? (
-            <>
-              <span className="text-xs font-bold text-primary">{price}</span>
-              <span className="text-[9px] text-muted-foreground line-through">{product.priceRetail}</span>
-            </>
-          ) : (
-            <span className="text-xs font-bold">{price}</span>
-          )}
+
+          <div className="mt-1 flex items-baseline gap-1">
+            {product.discountPrice ? (
+              <>
+                <span className="text-xs font-bold text-primary">{price}</span>
+                <span className="text-[9px] text-muted-foreground line-through">{product.priceRetail}</span>
+              </>
+            ) : (
+              <span className="text-xs font-bold">{price}</span>
+            )}
+          </div>
         </div>
+
         <Button
           size="sm"
-          className="mt-1.5 w-full rounded-full text-[9px] h-6"
+          className="mt-2 h-6 w-full shrink-0 rounded-full text-[9px]"
           onClick={handleAddToCart}
           variant={added ? "secondary" : "default"}
         >

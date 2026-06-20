@@ -109,9 +109,9 @@ function ProductCard({ product, locale }: { product: MockProduct; locale: string
   };
 
   return (
-    <div className="product-card bg-card rounded-2xl border border-border overflow-hidden flex-shrink-0 w-52 sm:w-56 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-      <Link href={productDetailPath(product)} className="block relative">
-        <div className="h-44 relative overflow-hidden">
+    <div className="product-card flex w-52 shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:w-56">
+      <Link href={productDetailPath(product)} className="relative block shrink-0">
+        <div className="relative h-44 overflow-hidden">
           {product.images?.[0] ? (
             <ProductImage src={product.images[0]} alt="" fill className="object-cover" sizes="224px" />
           ) : null}
@@ -131,30 +131,34 @@ function ProductCard({ product, locale }: { product: MockProduct; locale: string
           {product.badge === "NEW" && !product.discountPrice && <span className="new-badge">{locale === "ar" ? "جديد" : "NEW"}</span>}
         </div>
       </Link>
-      <div className="p-3">
-        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">{product.brand}</p>
-            <Link href={productDetailPath(product)}>
-          <h3 className="text-sm font-semibold line-clamp-2 mt-0.5 hover:text-primary transition-colors leading-snug">
-            {locale === "ar" ? product.nameAr : product.nameEn}
-          </h3>
-        </Link>
-        {product.rating > 0 && (
-          <div className="flex items-center gap-0.5 mt-1.5">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Star key={i} className={`size-3 ${i < Math.floor(product.rating) ? "star-filled" : "star-empty"}`} />
-            ))}
-            <span className="text-[10px] text-muted-foreground ms-1">({product.rating})</span>
+      <div className="flex flex-1 flex-col p-3">
+        <div className="flex flex-1 flex-col">
+          <p className="truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{product.brand || "\u00A0"}</p>
+          <Link href={productDetailPath(product)}>
+            <h3 className="mt-0.5 min-h-[2.75rem] line-clamp-2 text-sm font-semibold leading-snug transition-colors hover:text-primary">
+              {locale === "ar" ? product.nameAr : product.nameEn}
+            </h3>
+          </Link>
+          <div className="mt-1.5 flex h-4 items-center gap-0.5">
+            {product.rating > 0 ? (
+              <>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} className={`size-3 ${i < Math.floor(product.rating) ? "star-filled" : "star-empty"}`} />
+                ))}
+                <span className="ms-1 text-[10px] text-muted-foreground">({product.rating})</span>
+              </>
+            ) : null}
           </div>
-        )}
-        <div className="flex items-baseline gap-1.5 mt-2">
-          <span className="text-base font-bold text-primary">{price} {locale === "ar" ? "ج.م" : "EGP"}</span>
-          {product.discountPrice && (
-            <span className="text-xs text-muted-foreground line-through">{product.priceRetail}</span>
-          )}
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-base font-bold text-primary">{price} {locale === "ar" ? "ج.م" : "EGP"}</span>
+            {product.discountPrice && (
+              <span className="text-xs text-muted-foreground line-through">{product.priceRetail}</span>
+            )}
+          </div>
         </div>
         <button
           onClick={handleAdd}
-          className={`add-btn mt-2 w-full rounded-full text-xs h-8 font-semibold flex items-center justify-center gap-1.5 transition-all ${added ? "bg-emerald-500 text-white" : "bg-primary text-white hover:bg-red-700"}`}
+          className={`add-btn mt-2 flex h-8 w-full shrink-0 items-center justify-center gap-1.5 rounded-full text-xs font-semibold transition-all ${added ? "bg-emerald-500 text-white" : "bg-primary text-white hover:bg-red-700"}`}
         >
           {added ? <><Check className="size-3.5" />{locale === "ar" ? "تمت الإضافة" : "Added"}</> : <><ShoppingCart className="size-3.5" />{locale === "ar" ? "أضف للسلة" : "Add to Cart"}</>}
         </button>

@@ -546,7 +546,7 @@ function ProductsContent() {
               onAction={clearFilters}
             />
           ) : viewMode === "grid" ? (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+            <div className="grid grid-cols-3 items-stretch gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
               {products.map((product) => (
                 <ProductCard key={product.id} product={product} locale={locale} />
               ))}
