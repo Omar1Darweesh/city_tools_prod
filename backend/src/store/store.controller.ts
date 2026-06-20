@@ -48,6 +48,7 @@ export class StoreController {
     @Query('limit') limit?: string,
     @Query('categoryId') categoryId?: string,
     @Query('subcategoryId') subcategoryId?: string,
+    @Query('subcategoryIds') subcategoryIds?: string,
     @Query('itemTypeId') itemTypeId?: string,
     @Query('search') search?: string,
     @Query('sort') sort?: string,
@@ -62,6 +63,9 @@ export class StoreController {
       limit: limit ? Number(limit) : undefined,
       categoryId: categoryId ? Number(categoryId) : undefined,
       subcategoryId: subcategoryId ? Number(subcategoryId) : undefined,
+      subcategoryIds: subcategoryIds
+        ? subcategoryIds.split(',').map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n) && n > 0)
+        : undefined,
       itemTypeId: itemTypeId ? Number(itemTypeId) : undefined,
       search,
       sort,

@@ -245,8 +245,8 @@ export class StoreService {
     return this.getFeatured();
   }
 
-  async getProducts(params: { page?: number; limit?: number; categoryId?: number; subcategoryId?: number; itemTypeId?: number; search?: string; sort?: string; isPopular?: boolean; isBestSale?: boolean; discounted?: boolean; badge?: string; brand?: string }) {
-    const { page = 1, limit = 50, categoryId, subcategoryId, itemTypeId, search, sort, isPopular, isBestSale, discounted, badge, brand } = params;
+  async getProducts(params: { page?: number; limit?: number; categoryId?: number; subcategoryId?: number; subcategoryIds?: number[]; itemTypeId?: number; search?: string; sort?: string; isPopular?: boolean; isBestSale?: boolean; discounted?: boolean; badge?: string; brand?: string }) {
+    const { page = 1, limit = 50, categoryId, subcategoryId, subcategoryIds, itemTypeId, search, sort, isPopular, isBestSale, discounted, badge, brand } = params;
     const visibility = await this.getDefectiveCategoryVisibility();
 
     if (!visibility.show && visibility.categoryId && categoryId === visibility.categoryId) {
@@ -259,7 +259,9 @@ export class StoreService {
       where.categoryId = categoryId;
     }
 
-    if (subcategoryId) {
+    if (subcategoryIds?.length) {
+      where.itemType = { subcategoryId: { in: subcategoryIds } };
+    } else if (subcategoryId) {
       where.itemType = { subcategoryId };
     }
 

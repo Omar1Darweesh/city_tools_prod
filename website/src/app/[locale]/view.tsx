@@ -3,13 +3,14 @@
 import { useLocale } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { store } from "@/data";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { productDetailPath } from "@/lib/product-url";
 import ProductImage from "@/components/products/product-image";
 import Image from "next/image";
 import { ShoppingCart, Star, Check, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, Zap, Wrench, Shield, Truck, BadgePercent, HeadphonesIcon, Package, Bolt, Droplets, Factory, Settings, Toolbox, DollarSign } from "lucide-react";
 import { useCart } from "@/components/cart/cart-context";
 import { buildLogoByName, getCategoryLogo } from "@/lib/brand-logo";
+import { groupSubcategoriesByName, subcategoryGroupProductsHref } from "@/lib/subcategory-groups";
 import type { MockProduct, MockCategory, MockSubcategory, MockBrand, MockStatistic, MockDiscountCard } from "@/data";
 
 /* ─── helpers ─── */
@@ -374,6 +375,11 @@ export default function HomePage() {
 
   const logoByName = buildLogoByName(brandLogos);
 
+  const groupedSubcats = useMemo(
+    () => groupSubcategoriesByName(subcats, locale),
+    [subcats, locale],
+  );
+
   const marqueeBrands = brandLogos.length > 0 ? brandLogos : cats.map((c) => ({
     id: c.id,
     name: c.name,
@@ -476,11 +482,11 @@ export default function HomePage() {
       <section className="bg-muted/40 py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <Reveal>
-            <SectionTitle ar="تسوق من أهم الفئات" en="Shop by Type" link="/products" locale={locale} />
+            <SectionTitle ar="تسوق من أهم الفئات" en="Shop by Type" link="/types" locale={locale} />
           </Reveal>
           <Reveal delay={100}>
             <CircleScroller>
-              {subcats.length === 0 ? (
+              {groupedSubcats.length === 0 ? (
                 <div className="flex gap-4 text-sm text-muted-foreground py-4">
                   {[...Array(4)].map((_, i) => (
                     <div key={i} className="flex flex-col items-center gap-2 animate-pulse">
@@ -489,14 +495,13 @@ export default function HomePage() {
                     </div>
                   ))}
                 </div>
-              ) : subcats.map((sub, i) => {
-                const parent = cats.find((c) => c.id === sub.categoryId);
-                const color = parent?.color || SUBCAT_COLORS[i % SUBCAT_COLORS.length];
-                const label = isRtl ? sub.nameAr || sub.name : sub.name;
+              ) : groupedSubcats.map((group, i) => {
+                const color = SUBCAT_COLORS[i % SUBCAT_COLORS.length];
+                const label = isRtl ? group.nameAr || group.name : group.name;
                 return (
                   <Link
-                    key={sub.id}
-                    href={`/products?subcategoryId=${sub.id}`}
+                    key={group.key}
+                    href={subcategoryGroupProductsHref(group.ids)}
                     className="category-circle snap-start flex-shrink-0 flex flex-col items-center gap-2 group"
                     style={{ animationDelay: `${i * 60}ms` }}
                   >
@@ -511,7 +516,7 @@ export default function HomePage() {
                     <span className="text-xs font-semibold text-center text-foreground group-hover:text-primary transition-colors">
                       {label}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">{sub.productCount} {isRtl ? "منتج" : "items"}</span>
+                    <span className="text-[10px] text-muted-foreground">{group.productCount} {isRtl ? "منتج" : "items"}</span>
                   </Link>
                 );
               })}

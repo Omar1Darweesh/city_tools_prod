@@ -82,6 +82,7 @@ export const store = {
     limit?: number;
     categoryId?: number;
     subcategoryId?: number;
+    subcategoryIds?: number[];
     itemTypeId?: number;
     search?: string;
     sort?: string;

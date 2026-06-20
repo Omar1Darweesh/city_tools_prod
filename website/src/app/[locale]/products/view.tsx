@@ -23,7 +23,11 @@ function ProductsContent() {
   const query = searchParams.get("search") || "";
   const categoryParam = searchParams.get("categoryId");
   const subcategoryParam = searchParams.get("subcategoryId");
+  const subcategoryIdsParam = searchParams.get("subcategoryIds");
   const brandParam = searchParams.get("brand") || "";
+
+  const parseSubcategoryIds = (raw: string | null) =>
+    raw ? raw.split(",").map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n) && n > 0) : [];
 
   const [searchInput, setSearchInput] = useState(query);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -33,8 +37,11 @@ function ProductsContent() {
     categoryParam ? Number(categoryParam) : undefined
   );
   const [filterBrand, setFilterBrand] = useState<string | undefined>(brandParam || undefined);
+  const [filterSubcategoryIds, setFilterSubcategoryIds] = useState<number[]>(() =>
+    parseSubcategoryIds(subcategoryIdsParam),
+  );
   const [filterSubcategory, setFilterSubcategory] = useState<number | undefined>(
-    subcategoryParam ? Number(subcategoryParam) : undefined
+    subcategoryIdsParam ? undefined : subcategoryParam ? Number(subcategoryParam) : undefined
   );
   const [filterItemType, setFilterItemType] = useState<number | undefined>(undefined);
   const [filterPopular, setFilterPopular] = useState(false);
@@ -55,12 +62,14 @@ function ProductsContent() {
   const handleCategoryChange = (catId: number | undefined) => {
     setSelectedCategory(catId);
     setFilterSubcategory(undefined);
+    setFilterSubcategoryIds([]);
     setFilterItemType(undefined);
     setShowFilters(false);
   };
 
   const handleSubcategoryChange = (subId: number | undefined) => {
     setFilterSubcategory(subId);
+    setFilterSubcategoryIds([]);
     setFilterItemType(undefined);
   };
 
@@ -90,6 +99,7 @@ function ProductsContent() {
     setSearchInput("");
     setSelectedCategory(undefined);
     setFilterSubcategory(undefined);
+    setFilterSubcategoryIds([]);
     setFilterItemType(undefined);
     setFilterBrand(undefined);
     setFilterPopular(false);
@@ -109,6 +119,7 @@ function ProductsContent() {
     setFilterBadge(undefined);
     setSelectedCategory(undefined);
     setFilterSubcategory(undefined);
+    setFilterSubcategoryIds([]);
     setFilterItemType(undefined);
     setMinRating(0);
     setStockThreshold("all");
@@ -117,7 +128,7 @@ function ProductsContent() {
     router.push("/products");
   };
 
-  const filterDeps = [query, selectedCategory, filterSubcategory, filterItemType, filterBrand, sort, filterPopular, filterBestSale, filterDiscounted, filterBadge, minRating, stockThreshold];
+  const filterDeps = [query, selectedCategory, filterSubcategory, filterSubcategoryIds.join(","), filterItemType, filterBrand, sort, filterPopular, filterBestSale, filterDiscounted, filterBadge, minRating, stockThreshold];
 
   useEffect(() => { setPage(1); }, filterDeps);
 
@@ -127,7 +138,8 @@ function ProductsContent() {
       limit: PAGE_SIZE,
       search: query,
       categoryId: selectedCategory,
-      subcategoryId: filterSubcategory,
+      subcategoryId: filterSubcategoryIds.length ? undefined : filterSubcategory,
+      subcategoryIds: filterSubcategoryIds.length ? filterSubcategoryIds : undefined,
       itemTypeId: filterItemType,
       brand: filterBrand,
       sort,
@@ -320,7 +332,7 @@ function ProductsContent() {
                       <button
                         onClick={() => {
                           if (key === "categories") handleCategoryChange(undefined);
-                          else if (key === "subcategories") setFilterSubcategory(undefined);
+                          else if (key === "subcategories") { setFilterSubcategory(undefined); setFilterSubcategoryIds([]); }
                           else setFilterItemType(undefined);
                         }}
                         className={`rounded-md px-2.5 py-1.5 text-left text-xs transition-colors ${
@@ -392,7 +404,7 @@ function ProductsContent() {
                         <button
                           onClick={() => {
                             if (key === "categories") handleCategoryChange(undefined);
-                            else if (key === "subcategories") setFilterSubcategory(undefined);
+                            else if (key === "subcategories") { setFilterSubcategory(undefined); setFilterSubcategoryIds([]); }
                             else setFilterItemType(undefined);
                           }}
                           className={`rounded-lg px-3 py-2 text-left text-sm transition-colors ${
